@@ -1,0 +1,3 @@
+## 2024-05-24 - Batch Supabase Upserts to Solve N+1 Loops
+**Learning:** Found an endpoint that loops over an array of items from a POST request, doing an individual `supabase.from('x').upsert(row)` operation on each one resulting in `O(N)` queries instead of `O(1)`. Supabase supports batching array inserts/upserts.
+**Action:** Always inspect array iterations that write to databases for opportunities to map elements to an array structure and perform one collective batch insertion.
