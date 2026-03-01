@@ -18,7 +18,27 @@ app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().
 app.post('/api/global/vitals', async (req, res) => {
   try {
     const arr = Array.isArray(req.body) ? req.body : [req.body];
-    for (const v of arr) { const row = { source_module: v.source_module, efficiency_coefficient: v.efficiency_coefficient, zscore: v.domain_kpis?.zscore ?? 0, signal_status: v.signal_status, system_timestamp: v.system_timestamp || new Date().toISOString() }; if (supabase) { const { error } = await supabase.from('vitals').upsert(row, { onConflict: 'source_module' }); if (error) memStore.set(v.source_module, row); } else { memStore.set(v.source_module, row); } }
+
+    // ⚡ Bolt: Batch database operations to resolve N+1 queries issue
+    const rows = arr.map(v => ({
+      source_module: v.source_module,
+      efficiency_coefficient: v.efficiency_coefficient,
+      zscore: v.domain_kpis?.zscore ?? 0,
+      signal_status: v.signal_status,
+      system_timestamp: v.system_timestamp || new Date().toISOString()
+    }));
+
+    if (supabase) {
+      // Perform a single batched upsert instead of an upsert per row
+      const { error } = await supabase.from('vitals').upsert(rows, { onConflict: 'source_module' });
+      if (error) {
+        // Fallback to memStore on DB error
+        rows.forEach(row => memStore.set(row.source_module, row));
+      }
+    } else {
+      rows.forEach(row => memStore.set(row.source_module, row));
+    }
+
     res.status(202).json({ status: 'accepted', count: arr.length });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
