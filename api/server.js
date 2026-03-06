@@ -12,6 +12,9 @@ app.use(cors()); app.use(express.json());
 app.use(express.static(join(__dirname, '..')));
 const supabase = process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY) : null;
 const memStore = new Map();
+// ⚡ Bolt: Cache API leaderboard to reduce database queries. Invalidate on new vitals.
+let leaderboardCache = null;
+
 const normalizeZ = z => Math.max(0, Math.min(1, (z + 3) / 6));
 const calcDI = (ec, z) => Number((Number(ec) * 0.65 + normalizeZ(Number(z)) * 0.35).toFixed(4));
 app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
@@ -26,13 +29,22 @@ app.post('/api/global/vitals', async (req, res) => {
     } else {
       rows.forEach(r => memStore.set(r.source_module, r));
     }
+    // ⚡ Bolt: Invalidate leaderboard cache
+    leaderboardCache = null;
     res.status(202).json({ status: 'accepted', count: arr.length });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 app.get('/api/leaderboard', async (req, res) => {
   try {
+    // ⚡ Bolt: Serve from cache if available to prevent constant DB polling
+    if (leaderboardCache) return res.json(leaderboardCache);
+
     const rows = supabase ? (await supabase.from('vitals').select('*')).data || [] : Array.from(memStore.values());
-    res.json(rows.map(r => ({ module: r.source_module?.includes('golf') ? 'SPACEZGOLF' : 'BLUE HORIZON', dominanceIndex: calcDI(r.efficiency_coefficient, r.zscore), efficiency: Number(r.efficiency_coefficient), zscore: Number(r.zscore), signal: r.signal_status, timestamp: r.system_timestamp })).sort((a, b) => b.dominanceIndex - a.dominanceIndex).map((r, i) => ({ ...r, rank: i + 1 })));
+    const data = rows.map(r => ({ module: r.source_module?.includes('golf') ? 'SPACEZGOLF' : 'BLUE HORIZON', dominanceIndex: calcDI(r.efficiency_coefficient, r.zscore), efficiency: Number(r.efficiency_coefficient), zscore: Number(r.zscore), signal: r.signal_status, timestamp: r.system_timestamp })).sort((a, b) => b.dominanceIndex - a.dominanceIndex).map((r, i) => ({ ...r, rank: i + 1 }));
+
+    // ⚡ Bolt: Store in cache
+    leaderboardCache = data;
+    res.json(data);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 app.post('/api/analyze-swing', async (req, res) => {
