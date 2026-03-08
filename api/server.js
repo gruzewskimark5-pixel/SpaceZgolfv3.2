@@ -40,7 +40,10 @@ app.get('/api/leaderboard', async (req, res) => {
     if (leaderboardCache) return res.json(leaderboardCache);
 
     const rows = supabase ? (await supabase.from('vitals').select('*')).data || [] : Array.from(memStore.values());
-    const data = rows.map(r => ({ module: r.source_module?.includes('golf') ? 'SPACEZGOLF' : 'BLUE HORIZON', dominanceIndex: calcDI(r.efficiency_coefficient, r.zscore), efficiency: Number(r.efficiency_coefficient), zscore: Number(r.zscore), signal: r.signal_status, timestamp: r.system_timestamp })).sort((a, b) => b.dominanceIndex - a.dominanceIndex).map((r, i) => ({ ...r, rank: i + 1 }));
+    // ⚡ Bolt: Optimize array processing by using in-place sort and direct property assignment instead of chaining .map() and object spreads. Reduces memory churn and GC overhead.
+    const data = rows.map(r => ({ module: r.source_module?.includes('golf') ? 'SPACEZGOLF' : 'BLUE HORIZON', dominanceIndex: calcDI(r.efficiency_coefficient, r.zscore), efficiency: Number(r.efficiency_coefficient), zscore: Number(r.zscore), signal: r.signal_status, timestamp: r.system_timestamp }));
+    data.sort((a, b) => b.dominanceIndex - a.dominanceIndex);
+    for (let i = 0; i < data.length; i++) { data[i].rank = i + 1; }
 
     // ⚡ Bolt: Store in cache
     leaderboardCache = data;
