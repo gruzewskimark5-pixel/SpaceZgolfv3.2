@@ -40,7 +40,12 @@ app.get('/api/leaderboard', async (req, res) => {
     if (leaderboardCache) return res.json(leaderboardCache);
 
     const rows = supabase ? (await supabase.from('vitals').select('*')).data || [] : Array.from(memStore.values());
-    const data = rows.map(r => ({ module: r.source_module?.includes('golf') ? 'SPACEZGOLF' : 'BLUE HORIZON', dominanceIndex: calcDI(r.efficiency_coefficient, r.zscore), efficiency: Number(r.efficiency_coefficient), zscore: Number(r.zscore), signal: r.signal_status, timestamp: r.system_timestamp })).sort((a, b) => b.dominanceIndex - a.dominanceIndex).map((r, i) => ({ ...r, rank: i + 1 }));
+    const data = rows.map(r => ({ module: r.source_module?.includes('golf') ? 'SPACEZGOLF' : 'BLUE HORIZON', dominanceIndex: calcDI(r.efficiency_coefficient, r.zscore), efficiency: Number(r.efficiency_coefficient), zscore: Number(r.zscore), signal: r.signal_status, timestamp: r.system_timestamp })).sort((a, b) => b.dominanceIndex - a.dominanceIndex);
+
+    // ⚡ Bolt: avoid object spread churn when adding ranks
+    for (let i = 0; i < data.length; i++) {
+      data[i].rank = i + 1;
+    }
 
     // ⚡ Bolt: Store in cache
     leaderboardCache = data;
