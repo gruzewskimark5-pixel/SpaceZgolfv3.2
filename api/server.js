@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { normalizeZ, calcDI } from './utils.js';
 dotenv.config();
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -15,8 +16,6 @@ const memStore = new Map();
 // ⚡ Bolt: Cache API leaderboard to reduce database queries. Invalidate on new vitals.
 let leaderboardCache = null;
 
-const normalizeZ = z => Math.max(0, Math.min(1, (z + 3) / 6));
-const calcDI = (ec, z) => Number((Number(ec) * 0.65 + normalizeZ(Number(z)) * 0.35).toFixed(4));
 app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 app.post('/api/global/vitals', async (req, res) => {
   try {
