@@ -21,7 +21,23 @@ app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().
 app.post('/api/global/vitals', async (req, res) => {
   try {
     const arr = Array.isArray(req.body) ? req.body : [req.body];
-    const rows = arr.map(v => ({ source_module: v.source_module, efficiency_coefficient: v.efficiency_coefficient, zscore: v.domain_kpis?.zscore ?? 0, signal_status: v.signal_status, system_timestamp: v.system_timestamp || new Date().toISOString() }));
+
+    // ⚡ Bolt: Optimize large array processing by pre-allocating an array and using
+    // a for loop instead of .map(). This avoids V8 garbage collection overhead while
+    // safely preserving the immutability of source objects.
+    const len = arr.length;
+    const rows = new Array(len);
+    for (let i = 0; i < len; i++) {
+      const v = arr[i];
+      rows[i] = {
+        source_module: v.source_module,
+        efficiency_coefficient: v.efficiency_coefficient,
+        zscore: v.domain_kpis?.zscore ?? 0,
+        signal_status: v.signal_status,
+        system_timestamp: v.system_timestamp || new Date().toISOString()
+      };
+    }
+
     // Optimization: Batch upsert instead of N+1 queries. Reduces network roundtrips from O(N) to O(1).
     if (supabase) {
       const { error } = await supabase.from('vitals').upsert(rows, { onConflict: 'source_module' });
@@ -40,7 +56,24 @@ app.get('/api/leaderboard', async (req, res) => {
     if (leaderboardCache) return res.json(leaderboardCache);
 
     const rows = supabase ? (await supabase.from('vitals').select('*')).data || [] : Array.from(memStore.values());
-    const data = rows.map(r => ({ module: r.source_module?.includes('golf') ? 'SPACEZGOLF' : 'BLUE HORIZON', dominanceIndex: calcDI(r.efficiency_coefficient, r.zscore), efficiency: Number(r.efficiency_coefficient), zscore: Number(r.zscore), signal: r.signal_status, timestamp: r.system_timestamp })).sort((a, b) => b.dominanceIndex - a.dominanceIndex);
+
+    // ⚡ Bolt: Optimize large array processing by pre-allocating an array and using
+    // a for loop instead of .map(). This avoids V8 garbage collection overhead while
+    // safely preserving the immutability of source objects.
+    const len = rows.length;
+    const data = new Array(len);
+    for (let i = 0; i < len; i++) {
+      const r = rows[i];
+      data[i] = {
+        module: r.source_module?.includes('golf') ? 'SPACEZGOLF' : 'BLUE HORIZON',
+        dominanceIndex: calcDI(r.efficiency_coefficient, r.zscore),
+        efficiency: Number(r.efficiency_coefficient),
+        zscore: Number(r.zscore),
+        signal: r.signal_status,
+        timestamp: r.system_timestamp
+      };
+    }
+    data.sort((a, b) => b.dominanceIndex - a.dominanceIndex);
 
     // ⚡ Bolt: avoid object spread churn when adding ranks
     for (let i = 0; i < data.length; i++) {
