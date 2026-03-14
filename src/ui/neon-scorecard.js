@@ -12,6 +12,21 @@ const initEls = () => {
   }
 };
 const sigClass = s => s === 'green' ? 'lb-signal-green' : s === 'yellow' ? 'lb-signal-yellow' : 'lb-signal-red';
+
+/**
+ * Renders a single leaderboard row
+ * @param {Object} r Row data
+ * @param {number} i Row index
+ * @returns {string} HTML string
+ */
+const renderRow = (r, i) =>
+  `<div class="lb-row">` +
+    `<span class="lb-rank">#${i + 1}</span>` +
+    `<span class="lb-module">${r.module}</span>` +
+    `<span class="lb-di">${r.dominanceIndex.toFixed(4)}</span>` +
+    `<span class="${sigClass(r.signal)}">● ${(r.signal || '').toUpperCase()}</span>` +
+  `</div>`;
+
 const render = (lb) => {
   const top = lb[0]; if (!top) return;
   initEls();
@@ -19,7 +34,7 @@ const render = (lb) => {
   els.index.textContent = top.dominanceIndex.toFixed(4);
 
   // ⚡ Bolt: Prevent unnecessary DOM layout/paint thrashing by only updating innerHTML if changed
-  const newHtml = lb.map((r, i) => `<div class="lb-row"><span class="lb-rank">#${i+1}</span><span class="lb-module">${r.module}</span><span class="lb-di">${r.dominanceIndex.toFixed(4)}</span><span class="${sigClass(r.signal)}">● ${(r.signal||'').toUpperCase()}</span></div>`).join('');
+  const newHtml = lb.map(renderRow).join('');
   if (els.rows.innerHTML !== newHtml) {
     els.rows.innerHTML = newHtml;
   }
