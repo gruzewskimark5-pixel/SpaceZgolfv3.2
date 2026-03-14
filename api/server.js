@@ -12,6 +12,8 @@ app.use(cors()); app.use(express.json());
 app.use(express.static(join(__dirname, '..')));
 const supabase = process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY) : null;
 const memStore = new Map();
+const rateLimits = new Map();
+const MAX_FRAMES = 10;
 // ⚡ Bolt: Cache API leaderboard to reduce database queries. Invalidate on new vitals.
 let leaderboardCache = null;
 
@@ -53,8 +55,25 @@ app.get('/api/leaderboard', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 app.post('/api/analyze-swing', async (req, res) => {
+  const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+  const now = Date.now();
+  const userLimit = rateLimits.get(ip) || { count: 0, reset: now + 60000 };
+
+  if (now > userLimit.reset) {
+    userLimit.count = 0;
+    userLimit.reset = now + 60000;
+  }
+
+  if (userLimit.count >= 5) {
+    return res.status(429).json({ error: 'Too many requests. Please try again in a minute.' });
+  }
+
+  userLimit.count++;
+  rateLimits.set(ip, userLimit);
+
   const { frames } = req.body;
   if (!frames?.length) return res.status(400).json({ error: 'No frames provided' });
+  if (frames.length > MAX_FRAMES) return res.status(400).json({ error: `Too many frames. Maximum allowed is ${MAX_FRAMES}.` });
   if (!process.env.XAI_API_KEY) return res.status(500).json({ error: 'XAI_API_KEY not set' });
   try {
     const r = await fetch('https://api.x.ai/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.XAI_API_KEY}` }, body: JSON.stringify({ model: 'grok-vision-beta', messages: [{ role: 'system', content: 'Golf swing analyst. Return JSON: {tips:string[],issues:string[],score:number}' }, { role: 'user', content: frames.map(f => ({ type: 'image_url', image_url: { url: `data:image/jpeg;base64,${f}` } })) }], max_tokens: 500 }) });
