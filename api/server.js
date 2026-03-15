@@ -39,7 +39,11 @@ app.post('/api/global/vitals', async (req, res) => {
 app.get('/api/leaderboard', async (req, res) => {
   try {
     // ⚡ Bolt: Serve from cache if available to prevent constant DB polling
-    if (leaderboardCache) return res.json(leaderboardCache);
+    // ⚡ Bolt: Serve stringified JSON cache to avoid O(Clients) serialization overhead
+    if (leaderboardCache) {
+      res.setHeader('Content-Type', 'application/json');
+      return res.send(leaderboardCache);
+    }
 
     const rows = supabase ? (await supabase.from('vitals').select('*')).data || [] : Array.from(memStore.values());
     const data = rows.map(r => ({ module: r.source_module?.includes('golf') ? 'SPACEZGOLF' : 'BLUE HORIZON', dominanceIndex: calcDI(r.efficiency_coefficient, r.zscore), efficiency: Number(r.efficiency_coefficient), zscore: Number(r.zscore), signal: r.signal_status, timestamp: r.system_timestamp })).sort((a, b) => b.dominanceIndex - a.dominanceIndex);
@@ -49,9 +53,10 @@ app.get('/api/leaderboard', async (req, res) => {
       data[i].rank = i + 1;
     }
 
-    // ⚡ Bolt: Store in cache
-    leaderboardCache = data;
-    res.json(data);
+    // ⚡ Bolt: Store serialized JSON in cache (O(1) serialization instead of O(Clients))
+    leaderboardCache = JSON.stringify(data);
+    res.setHeader('Content-Type', 'application/json');
+    res.send(leaderboardCache);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 app.post('/api/analyze-swing', async (req, res) => {

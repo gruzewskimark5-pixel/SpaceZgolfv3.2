@@ -13,3 +13,7 @@
 ## 2026-03-24 - [EventBus Emission Optimization]
 **Learning:** Iterating over a `Set` using `for...of` is significantly faster than using the spread operator `[...]` which creates an unnecessary intermediate array allocation, or `Set.prototype.forEach` which has callback overhead. In high-frequency event emitters, this can yield a ~26% performance improvement.
 **Action:** Use `for...of` for iterating over Sets or Maps in performance-critical paths to avoid allocations and callback overhead, while being mindful that direct iteration reflects concurrent modifications unlike snapshotting.
+
+## 2026-03-30 - [JSON Endpoint Serialization Bottleneck]
+**Learning:** Polling-heavy endpoints like `GET /api/leaderboard` that serve cached JavaScript objects using `res.json()` suffer from an O(Clients) scaling issue. For every request, `JSON.stringify()` is executed synchronously, which blocks the Node.js event loop when concurrent connections surge.
+**Action:** When caching read-heavy polled JSON endpoints, serialize the object once during the cache update (`leaderboardCache = JSON.stringify(data)`). Then, serve the string directly using `res.setHeader('Content-Type', 'application/json')` and `res.send()`. This converts serialization overhead from O(Clients) to O(1).
