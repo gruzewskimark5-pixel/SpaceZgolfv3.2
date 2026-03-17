@@ -18,7 +18,8 @@ const MAX_FRAMES = 10;
 let leaderboardCache = null;
 
 const normalizeZ = z => Math.max(0, Math.min(1, (z + 3) / 6));
-const calcDI = (ec, z) => Number((Number(ec) * 0.65 + normalizeZ(Number(z)) * 0.35).toFixed(4));
+// ⚡ Bolt: Use Math.round instead of Number((...).toFixed(4)) to avoid expensive string allocations and conversions in loops
+const calcDI = (ec, z) => Math.round((Number(ec) * 0.65 + normalizeZ(Number(z)) * 0.35) * 10000) / 10000;
 app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 app.post('/api/global/vitals', async (req, res) => {
   try {

@@ -8,7 +8,8 @@ export const zScoreBoard = (vitalsArray) => {
   const result = new Array(len);
   for (let i = 0; i < len; i++) {
     const v = vitalsArray[i];
-    const dominanceIndex = Number((v.efficiency_coefficient * 0.65 + normalizeZ(v.domain_kpis.zscore) * 0.35).toFixed(4));
+    // ⚡ Bolt: Use Math.round to avoid Number() and .toFixed() string allocation overhead inside high-iteration array loops
+    const dominanceIndex = Math.round((v.efficiency_coefficient * 0.65 + normalizeZ(v.domain_kpis.zscore) * 0.35) * 10000) / 10000;
     result[i] = {
       module: v.source_module.includes('golf') ? 'SPACEZGOLF' : 'BLUE HORIZON',
       ec: v.efficiency_coefficient,
