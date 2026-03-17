@@ -17,3 +17,7 @@
 ## 2026-03-24 - [JSON Serialization Overhead in Polled Endpoints]
 **Learning:** When caching read-heavy polled JSON endpoints (e.g., `/api/leaderboard`), calling `res.json(cachedObject)` incurs `JSON.stringify()` overhead on every request. This becomes a CPU bottleneck when traffic scales, as serialization is synchronous.
 **Action:** Cache the serialized JSON string instead of the object, and serve it directly via `res.send()` with the appropriate `Content-Type` header. This converts synchronous `JSON.stringify()` overhead from O(Clients) to O(1) per cache update.
+
+## 2026-04-10 - [Number Conversion and String Allocation in Loops]
+**Learning:** In hot loops, calculating a precision value using `Number(val.toFixed(4))` causes high garbage collection pressure and CPU overhead due to implicit string allocations.
+**Action:** Replace `Number(val.toFixed(4))` with integer math `Math.round(val * 10000) / 10000` to avoid unnecessary object allocations and keep conversions entirely on the number primitive level, saving significant CPU cycles in O(N) tasks.
