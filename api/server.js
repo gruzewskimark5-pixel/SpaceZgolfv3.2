@@ -47,7 +47,22 @@ app.get('/api/leaderboard', async (req, res) => {
     }
 
     const rows = supabase ? (await supabase.from('vitals').select('*')).data || [] : Array.from(memStore.values());
-    const data = rows.map(r => ({ module: r.source_module?.includes('golf') ? 'SPACEZGOLF' : 'BLUE HORIZON', dominanceIndex: calcDI(r.efficiency_coefficient, r.zscore), efficiency: Number(r.efficiency_coefficient), zscore: Number(r.zscore), signal: r.signal_status, timestamp: r.system_timestamp })).sort((a, b) => b.dominanceIndex - a.dominanceIndex);
+
+    // ⚡ Bolt: Pre-allocate array and use for-loop to avoid V8 intermediate array creation via .map()
+    const len = rows.length;
+    const data = new Array(len);
+    for (let i = 0; i < len; i++) {
+      const r = rows[i];
+      data[i] = {
+        module: r.source_module?.includes('golf') ? 'SPACEZGOLF' : 'BLUE HORIZON',
+        dominanceIndex: calcDI(r.efficiency_coefficient, r.zscore),
+        efficiency: Number(r.efficiency_coefficient),
+        zscore: Number(r.zscore),
+        signal: r.signal_status,
+        timestamp: r.system_timestamp
+      };
+    }
+    data.sort((a, b) => b.dominanceIndex - a.dominanceIndex);
 
     // ⚡ Bolt: avoid object spread churn when adding ranks
     for (let i = 0; i < data.length; i++) {
