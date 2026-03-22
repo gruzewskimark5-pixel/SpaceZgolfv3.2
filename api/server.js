@@ -64,7 +64,25 @@ app.get('/api/leaderboard', async (req, res) => {
     }
 
     const rows = supabase ? (await supabase.from('vitals').select('*')).data || [] : Array.from(memStore.values());
-    const data = rows.map(r => ({ module: r.source_module?.includes('golf') ? 'SPACEZGOLF' : 'BLUE HORIZON', dominanceIndex: calcDI(r.efficiency_coefficient, r.zscore), efficiency: Number(r.efficiency_coefficient), zscore: Number(r.zscore), signal: r.signal_status, timestamp: r.system_timestamp })).sort((a, b) => b.dominanceIndex - a.dominanceIndex);
+
+    // ⚡ Bolt: Optimize large array processing by pre-allocating an array and using
+    // a for loop instead of .map(). This prevents the V8 garbage collector from
+    // having to handle multiple intermediate allocations while still preserving
+    // immutability of the source objects and array.
+    const len = rows.length;
+    const data = new Array(len);
+    for (let i = 0; i < len; i++) {
+      const r = rows[i];
+      data[i] = {
+        module: r.source_module?.includes('golf') ? 'SPACEZGOLF' : 'BLUE HORIZON',
+        dominanceIndex: calcDI(r.efficiency_coefficient, r.zscore),
+        efficiency: Number(r.efficiency_coefficient),
+        zscore: Number(r.zscore),
+        signal: r.signal_status,
+        timestamp: r.system_timestamp
+      };
+    }
+    data.sort((a, b) => b.dominanceIndex - a.dominanceIndex);
 
     // ⚡ Bolt: avoid object spread churn when adding ranks
     for (let i = 0; i < data.length; i++) {
