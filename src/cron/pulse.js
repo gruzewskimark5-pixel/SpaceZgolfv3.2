@@ -28,16 +28,27 @@ const fetchAPI = async () => {
       throw new Error();
     }
     const d = await r.json();
-    if (!d.length) {
+    const len = d.length;
+    if (!len) {
       return null;
     }
-    return d.map(row => ({
-      source_module: row.module === 'SPACEZGOLF' ? 'golf_engine' : 'blue_horizon_re',
-      efficiency_coefficient: row.efficiency,
-      domain_kpis: { zscore: row.zscore },
-      signal_status: row.signal,
-      system_timestamp: row.timestamp || Date.now()
-    }));
+
+    // ⚡ Bolt: Optimize mapping large leaderboard arrays by pre-allocating an array
+    // and using a for loop instead of .map() to prevent V8 garbage collection overhead.
+    // We also hoist Date.now() to avoid re-evaluating it inside the loop.
+    const result = new Array(len);
+    const now = Date.now();
+    for (let i = 0; i < len; i++) {
+      const row = d[i];
+      result[i] = {
+        source_module: row.module === 'SPACEZGOLF' ? 'golf_engine' : 'blue_horizon_re',
+        efficiency_coefficient: row.efficiency,
+        domain_kpis: { zscore: row.zscore },
+        signal_status: row.signal,
+        system_timestamp: row.timestamp || now
+      };
+    }
+    return result;
   } catch {
     return null;
   }
