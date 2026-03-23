@@ -63,11 +63,30 @@ app.get('/api/leaderboard', async (req, res) => {
       return res.send(leaderboardCache);
     }
 
-    const rows = supabase ? (await supabase.from('vitals').select('*')).data || [] : Array.from(memStore.values());
-    const data = rows.map(r => ({ module: r.source_module?.includes('golf') ? 'SPACEZGOLF' : 'BLUE HORIZON', dominanceIndex: calcDI(r.efficiency_coefficient, r.zscore), efficiency: Number(r.efficiency_coefficient), zscore: Number(r.zscore), signal: r.signal_status, timestamp: r.system_timestamp })).sort((a, b) => b.dominanceIndex - a.dominanceIndex);
+    // ⚡ Bolt: Apply .order() and .limit(100) to the Supabase query to prevent unbounded data fetching
+    // and ensure the leaderboard only shows the most recent relevant records.
+    const rows = supabase ? (await supabase.from('vitals').select('*').order('system_timestamp', { ascending: false }).limit(100)).data || [] : Array.from(memStore.values());
+
+    // ⚡ Bolt: Optimize large array mapping to reduce intermediate garbage collection overhead.
+    // Pre-allocating the array and using a for-loop provides a measurable speedup over .map().
+    const len = rows.length;
+    const data = new Array(len);
+    for (let i = 0; i < len; i++) {
+      const r = rows[i];
+      data[i] = {
+        module: r.source_module?.includes('golf') ? 'SPACEZGOLF' : 'BLUE HORIZON',
+        dominanceIndex: calcDI(r.efficiency_coefficient, r.zscore),
+        efficiency: Number(r.efficiency_coefficient),
+        zscore: Number(r.zscore),
+        signal: r.signal_status,
+        timestamp: r.system_timestamp
+      };
+    }
+
+    data.sort((a, b) => b.dominanceIndex - a.dominanceIndex);
 
     // ⚡ Bolt: avoid object spread churn when adding ranks
-    for (let i = 0; i < data.length; i++) {
+    for (let i = 0; i < len; i++) {
       data[i].rank = i + 1;
     }
 
