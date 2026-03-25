@@ -8,3 +8,7 @@
 ## 2024-05-26 - Frontend Redundant Re-computation of Backend API Data
 **Learning:** Sometimes the backend serves already optimized, pre-computed, and pre-sorted data (like the JSON payload from `/api/leaderboard`). Fetching this data on the frontend and mapping it back into a raw format to run it redundantly through a computation and sort pipeline again is a significant waste of CPU cycles and memory.
 **Action:** Always inspect the payload format and sorting of API responses. If the backend already returns fully processed data, pass it straight into the frontend state store bypassing any local compute pipelines.
+
+## 2024-05-27 - Backend Database Query Bounds
+**Learning:** Unbounded database queries (e.g., `supabase.from('vitals').select('*')`) on high-traffic endpoints like leaderboards will cause significant performance degradation and memory exhaustion as datasets grow. The entire dataset must be fetched, parsed, and sorted in memory.
+**Action:** Always bound database queries for high-traffic endpoints using `.order()` and `.limit()` clauses at the query level (e.g., `.order('efficiency_coefficient', { ascending: false }).limit(100)`) to ensure predictable latency and memory usage.

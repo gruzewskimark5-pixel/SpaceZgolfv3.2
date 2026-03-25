@@ -63,7 +63,9 @@ app.get('/api/leaderboard', async (req, res) => {
       return res.send(leaderboardCache);
     }
 
-    const rows = supabase ? (await supabase.from('vitals').select('*')).data || [] : Array.from(memStore.values());
+    // ⚡ Bolt: Prevent performance degradation and memory exhaustion as datasets grow
+    // by bounding database queries for high-traffic endpoints with order and limit.
+    const rows = supabase ? (await supabase.from('vitals').select('*').order('efficiency_coefficient', { ascending: false }).limit(100)).data || [] : Array.from(memStore.values());
 
     // ⚡ Bolt: Optimize large array processing by pre-allocating an array and using
     // a for loop instead of .map(). This prevents the V8 garbage collector from
