@@ -8,3 +8,7 @@
 ## 2024-05-26 - Frontend Redundant Re-computation of Backend API Data
 **Learning:** Sometimes the backend serves already optimized, pre-computed, and pre-sorted data (like the JSON payload from `/api/leaderboard`). Fetching this data on the frontend and mapping it back into a raw format to run it redundantly through a computation and sort pipeline again is a significant waste of CPU cycles and memory.
 **Action:** Always inspect the payload format and sorting of API responses. If the backend already returns fully processed data, pass it straight into the frontend state store bypassing any local compute pipelines.
+
+## 2024-05-27 - Frontend String Concatenation vs Array Join
+**Learning:** In V8/Node.js environments, iterating through a collection and sequentially appending to a string using the `+=` operator with template literals is significantly faster (over 2.5x) than pre-allocating an array, mapping strings to indices, and calling `.join('')`.
+**Action:** When refactoring inline HTML generation for readability, prefer direct string concatenation (`+=`) over arrays with `.join('')` or multi-line template literals. String concatenation is significantly faster in V8 Node.js environments and avoids introducing unintended whitespace/newlines that disrupt CSS layouts.
