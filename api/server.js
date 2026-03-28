@@ -4,6 +4,8 @@ import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { MAX_FRAMES } from './constants.js';
+import { rateLimiter } from './rateLimiter.js';
 dotenv.config();
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -12,8 +14,6 @@ app.use(cors()); app.use(express.json());
 app.use(express.static(join(__dirname, '..')));
 const supabase = process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY) : null;
 const memStore = new Map();
-const rateLimits = new Map();
-const MAX_FRAMES = 10;
 // ⚡ Bolt: Cache API leaderboard to reduce database queries. Invalidate on new vitals.
 let leaderboardCache = null;
 
@@ -96,23 +96,7 @@ app.get('/api/leaderboard', async (req, res) => {
     res.send(serializedData);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-app.post('/api/analyze-swing', async (req, res) => {
-  const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
-  const now = Date.now();
-  const userLimit = rateLimits.get(ip) || { count: 0, reset: now + 60000 };
-
-  if (now > userLimit.reset) {
-    userLimit.count = 0;
-    userLimit.reset = now + 60000;
-  }
-
-  if (userLimit.count >= 5) {
-    return res.status(429).json({ error: 'Too many requests. Please try again in a minute.' });
-  }
-
-  userLimit.count++;
-  rateLimits.set(ip, userLimit);
-
+app.post('/api/analyze-swing', rateLimiter, async (req, res) => {
   const { frames } = req.body;
   if (!frames?.length) return res.status(400).json({ error: 'No frames provided' });
   if (frames.length > MAX_FRAMES) return res.status(400).json({ error: `Too many frames. Maximum allowed is ${MAX_FRAMES}.` });
