@@ -12,3 +12,15 @@
 ## 2024-05-27 - Frontend String Concatenation vs Array Join
 **Learning:** In V8/Node.js environments, iterating through a collection and sequentially appending to a string using the `+=` operator with template literals is significantly faster (over 2.5x) than pre-allocating an array, mapping strings to indices, and calling `.join('')`.
 **Action:** When refactoring inline HTML generation for readability, prefer direct string concatenation (`+=`) over arrays with `.join('')` or multi-line template literals. String concatenation is significantly faster in V8 Node.js environments and avoids introducing unintended whitespace/newlines that disrupt CSS layouts.
+
+## 2024-05-28 - Premature Optimization on Cold Paths
+**Learning:** Replacing `Array.prototype.forEach()` with a standard `for` loop to iterate over an array is a classic micro-optimization. In modern JavaScript engines like V8, the performance difference is negligible in a server request context. Applying it to cold paths like fallback error blocks is a premature optimization that violates guidelines against unreadable micro-optimizations.
+**Action:** Avoid micro-optimizations on cold paths. Focus on operations with measurable impact, like database query bounding or caching.
+
+## 2024-05-29 - Database Query Bounding on Unaggregated Data
+**Learning:** While bounding database queries with `.limit()` is a valid performance optimization for endpoints returning raw lists, applying it to a query that fetches raw data intended for in-memory aggregation (like calculating top scores for a leaderboard) will completely break the functionality. The leaderboard will no longer reflect the actual highest scores across all users, just the scores among those arbitrary records.
+**Action:** Do not use `.limit()` on database queries if the fetched data must be aggregated in-memory to determine the final results. To optimize this correctly, the aggregation and sorting would need to be moved to the database level (e.g., via a SQL view or RPC).
+
+## 2024-05-30 - Redundant Type Conversion in Loops
+**Learning:** Repeatedly casting the same value inside high-iteration loops (e.g., calling `Number()` on a string multiple times per row) creates measurable overhead. When passing data to helper functions that also perform type casting, the overhead compounds.
+**Action:** Hoist and cache type conversions (like `Number(val)`) into local variables before passing them to helper functions or reusing them in object construction to halve the parsing overhead in large array loops.

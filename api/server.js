@@ -19,7 +19,8 @@ let leaderboardCache = null;
 
 const normalizeZ = z => Math.max(0, Math.min(1, (z + 3) / 6));
 // ⚡ Bolt: Use Math.round instead of Number((...).toFixed(4)) to avoid expensive string allocations and conversions in loops
-const calcDI = (ec, z) => Math.round((Number(ec) * 0.65 + normalizeZ(Number(z)) * 0.35) * 10000) / 10000;
+// ⚡ Bolt: Removed redundant Number() casts. Caller is responsible for passing numbers.
+const calcDI = (ec, z) => Math.round((ec * 0.65 + normalizeZ(z) * 0.35) * 10000) / 10000;
 app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 app.post('/api/global/vitals', async (req, res) => {
   try {
@@ -73,11 +74,15 @@ app.get('/api/leaderboard', async (req, res) => {
     const data = new Array(len);
     for (let i = 0; i < len; i++) {
       const r = rows[i];
+      // ⚡ Bolt: Cache parsed numbers to avoid redundant string-to-number conversions
+      // This cuts the V8 Number() parsing overhead in half for large array loops
+      const ec = Number(r.efficiency_coefficient);
+      const zs = Number(r.zscore);
       data[i] = {
         module: r.source_module?.includes('golf') ? 'SPACEZGOLF' : 'BLUE HORIZON',
-        dominanceIndex: calcDI(r.efficiency_coefficient, r.zscore),
-        efficiency: Number(r.efficiency_coefficient),
-        zscore: Number(r.zscore),
+        dominanceIndex: calcDI(ec, zs),
+        efficiency: ec,
+        zscore: zs,
         signal: r.signal_status,
         timestamp: r.system_timestamp
       };
