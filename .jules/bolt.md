@@ -12,3 +12,7 @@
 ## 2024-05-27 - Frontend String Concatenation vs Array Join
 **Learning:** In V8/Node.js environments, iterating through a collection and sequentially appending to a string using the `+=` operator with template literals is significantly faster (over 2.5x) than pre-allocating an array, mapping strings to indices, and calling `.join('')`.
 **Action:** When refactoring inline HTML generation for readability, prefer direct string concatenation (`+=`) over arrays with `.join('')` or multi-line template literals. String concatenation is significantly faster in V8 Node.js environments and avoids introducing unintended whitespace/newlines that disrupt CSS layouts.
+
+## 2026-03-27 - Replace forEach with standard for loop
+**Learning:** In V8/Node.js, a standard `for` loop is consistently faster than `Array.prototype.forEach()` because it avoids the overhead of a callback function invocation per iteration. While the performance difference is small for small arrays, it becomes measurable in high-frequency paths like the vitals ingestion endpoint.
+**Action:** Use standard `for` loops instead of `forEach` in performance-critical paths to reduce function call overhead and improve execution speed.

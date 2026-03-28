@@ -45,9 +45,17 @@ app.post('/api/global/vitals', async (req, res) => {
     // Optimization: Batch upsert instead of N+1 queries. Reduces network roundtrips from O(N) to O(1).
     if (supabase) {
       const { error } = await supabase.from('vitals').upsert(rows, { onConflict: 'source_module' });
-      if (error) rows.forEach(r => memStore.set(r.source_module, r));
+      if (error) {
+        for (let i = 0; i < rows.length; i++) {
+          const r = rows[i];
+          memStore.set(r.source_module, r);
+        }
+      }
     } else {
-      rows.forEach(r => memStore.set(r.source_module, r));
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        memStore.set(r.source_module, r);
+      }
     }
     // ⚡ Bolt: Invalidate leaderboard cache
     leaderboardCache = null;
