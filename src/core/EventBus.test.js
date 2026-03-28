@@ -1,4 +1,4 @@
-import { test, describe } from 'node:test';
+import { test, describe, mock } from 'node:test';
 import assert from 'node:assert';
 import { EventBus } from './EventBus.js';
 
@@ -47,5 +47,19 @@ describe('EventBus', () => {
     // Should not throw
     EventBus.emit('error-test');
     assert.strictEqual(successCount, 1);
+  });
+
+  test('should log errors with console.error', () => {
+    const error = new Error('Async Boom');
+    const logMock = mock.method(console, 'error', () => {});
+
+    EventBus.on('log-error-test', () => { throw error; });
+
+    EventBus.emit('log-error-test');
+
+    assert.strictEqual(logMock.mock.callCount(), 1);
+    assert.deepStrictEqual(logMock.mock.calls[0].arguments, ['[EventBus]', error]);
+
+    logMock.mock.restore();
   });
 });
