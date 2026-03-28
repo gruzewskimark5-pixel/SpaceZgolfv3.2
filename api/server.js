@@ -17,11 +17,28 @@ const MAX_FRAMES = 10;
 // ⚡ Bolt: Cache API leaderboard to reduce database queries. Invalidate on new vitals.
 let leaderboardCache = null;
 
+const checkRateLimit = (ip, limit = 5, windowMs = 60000) => {
+  const now = Date.now();
+  const userLimit = rateLimits.get(ip) || { count: 0, reset: now + windowMs };
+  if (now > userLimit.reset) {
+    userLimit.count = 0;
+    userLimit.reset = now + windowMs;
+  }
+  if (userLimit.count >= limit) return false;
+  userLimit.count++;
+  rateLimits.set(ip, userLimit);
+  return true;
+};
+
 const normalizeZ = z => Math.max(0, Math.min(1, (z + 3) / 6));
 // ⚡ Bolt: Use Math.round instead of Number((...).toFixed(4)) to avoid expensive string allocations and conversions in loops
 const calcDI = (ec, z) => Math.round((Number(ec) * 0.65 + normalizeZ(Number(z)) * 0.35) * 10000) / 10000;
 app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 app.post('/api/global/vitals', async (req, res) => {
+  const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+  if (!checkRateLimit(ip)) {
+    return res.status(429).json({ error: 'Too many requests. Please try again in a minute.' });
+  }
   try {
     const arr = Array.isArray(req.body) ? req.body : [req.body];
 
@@ -98,20 +115,9 @@ app.get('/api/leaderboard', async (req, res) => {
 });
 app.post('/api/analyze-swing', async (req, res) => {
   const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
-  const now = Date.now();
-  const userLimit = rateLimits.get(ip) || { count: 0, reset: now + 60000 };
-
-  if (now > userLimit.reset) {
-    userLimit.count = 0;
-    userLimit.reset = now + 60000;
-  }
-
-  if (userLimit.count >= 5) {
+  if (!checkRateLimit(ip)) {
     return res.status(429).json({ error: 'Too many requests. Please try again in a minute.' });
   }
-
-  userLimit.count++;
-  rateLimits.set(ip, userLimit);
 
   const { frames } = req.body;
   if (!frames?.length) return res.status(400).json({ error: 'No frames provided' });
