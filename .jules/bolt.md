@@ -24,3 +24,7 @@
 ## 2024-05-30 - Redundant Type Conversion in Loops
 **Learning:** Repeatedly casting the same value inside high-iteration loops (e.g., calling `Number()` on a string multiple times per row) creates measurable overhead. When passing data to helper functions that also perform type casting, the overhead compounds.
 **Action:** Hoist and cache type conversions (like `Number(val)`) into local variables before passing them to helper functions or reusing them in object construction to halve the parsing overhead in large array loops.
+
+## 2024-05-31 - Array.from GC Overhead on Iterables
+**Learning:** Using `Array.from(memStore.values())` creates an unnecessary intermediate array allocation before the loop even begins to map over it. This O(N) allocation triggers additional garbage collection overhead.
+**Action:** When mapping over Map or Set iterables, avoid `Array.from()`. Instead, pre-allocate the target array using `.size` and populate it directly using a `for...of` loop over `.values()` to reduce garbage collection overhead and gain measurable speedups.
