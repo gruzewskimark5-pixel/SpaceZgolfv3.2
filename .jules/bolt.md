@@ -28,3 +28,7 @@
 ## 2024-05-31 - Array.from GC Overhead on Iterables
 **Learning:** Using `Array.from(memStore.values())` creates an unnecessary intermediate array allocation before the loop even begins to map over it. This O(N) allocation triggers additional garbage collection overhead.
 **Action:** When mapping over Map or Set iterables, avoid `Array.from()`. Instead, pre-allocate the target array using `.size` and populate it directly using a `for...of` loop over `.values()` to reduce garbage collection overhead and gain measurable speedups.
+
+## 2024-06-01 - Avoid Redundant Map Lookups
+**Learning:** Checking `Map.has(key)` followed by `Map.get(key)` inside the hot path causes a double lookup on the internal hash structure. By directly calling `Map.get(key)` and checking for undefined/truthiness, we can eliminate one of the lookups and execute the check faster.
+**Action:** When validating and retrieving values from a `Map`, prefer `const val = map.get(key); if (!val) return;` instead of `if (!map.has(key)) return; const val = map.get(key);` to halve the lookup overhead.

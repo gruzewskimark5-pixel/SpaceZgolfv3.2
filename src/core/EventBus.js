@@ -1,8 +1,9 @@
 export const EventBus = (() => {
   const listeners = new Map();
   return {
-    on(event, fn) { if (!listeners.has(event)) listeners.set(event, new Set()); listeners.get(event).add(fn); return () => listeners.get(event)?.delete(fn); },
-    emit(event, data) { if (!listeners.has(event)) return; for (const fn of listeners.get(event)) { try { fn(data); } catch(e) { console.error(`[EventBus]`, e); } } },
+    on(event, fn) { let fns = listeners.get(event); if (!fns) { fns = new Set(); listeners.set(event, fns); } fns.add(fn); return () => fns.delete(fn); },
+    // ⚡ Bolt: Removed redundant Map.has() lookup. Direct Map.get() cuts hash map queries in half.
+    emit(event, data) { const fns = listeners.get(event); if (!fns) return; for (const fn of fns) { try { fn(data); } catch(e) { console.error(`[EventBus]`, e); } } },
     off(event, fn) { listeners.get(event)?.delete(fn); }
   };
 })();
