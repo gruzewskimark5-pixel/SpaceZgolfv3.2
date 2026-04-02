@@ -119,9 +119,14 @@ app.get('/api/leaderboard', async (req, res) => {
 app.post('/api/analyze-swing', async (req, res) => {
   const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
   const now = Date.now();
-  const userLimit = rateLimits.get(ip) || { count: 0, reset: now + 60000 };
 
-  if (now > userLimit.reset) {
+  // ⚡ Bolt: Eliminate redundant object allocations and redundant Map .set() calls
+  // by mutating the object reference directly for existing IPs.
+  let userLimit = rateLimits.get(ip);
+  if (!userLimit) {
+    userLimit = { count: 0, reset: now + 60000 };
+    rateLimits.set(ip, userLimit);
+  } else if (now > userLimit.reset) {
     userLimit.count = 0;
     userLimit.reset = now + 60000;
   }
@@ -131,7 +136,6 @@ app.post('/api/analyze-swing', async (req, res) => {
   }
 
   userLimit.count++;
-  rateLimits.set(ip, userLimit);
 
   const { frames } = req.body;
   if (!frames?.length) return res.status(400).json({ error: 'No frames provided' });
