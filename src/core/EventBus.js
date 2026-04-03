@@ -31,6 +31,7 @@ export const EventBus = (() => {
       }
     },
     off(event, fn) {
+      listeners.get(event)?.delete(fn);
       const currentFns = listeners.get(event);
       if (currentFns) {
         currentFns.delete(fn);
