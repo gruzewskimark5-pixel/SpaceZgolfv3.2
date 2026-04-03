@@ -23,6 +23,11 @@ app.post('/api/global/vitals', async (req, res) => {
   try {
     const arr = Array.isArray(req.body) ? req.body : [req.body];
 
+    // ⚡ Bolt: Add early return for empty payloads to skip unnecessary processing, database queries, and cache invalidation.
+    if (arr.length === 0) {
+      return res.status(202).json({ status: 'ignored', count: 0 });
+    }
+
     // ⚡ Bolt: Optimize large array mapping to reduce intermediate garbage collection overhead.
     // Pre-allocating the array and using a for-loop provides ~12-18% speedup.
     // Also caches the fallback timestamp to avoid expensive string instantiations in the loop.
