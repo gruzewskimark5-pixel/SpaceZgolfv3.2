@@ -32,3 +32,7 @@
 ## 2024-06-01 - Redundant Map Lookups in Hot Paths
 **Learning:** Checking for existence in a `Map` using `.has()` and then immediately retrieving the value using `.get()` performs two internal hash map lookups. In high-iteration loops or hot paths like `EventBus.emit()`, this doubles the lookup overhead unnecessarily.
 **Action:** When checking for existence and retrieving a value from a `Map` on a hot path, avoid doing `Map.has()` followed by `Map.get()`. Instead, perform a single `Map.get()` and check its truthiness (e.g., `let val = map.get(key); if (!val) { ... }`) to halve the internal hash map lookup overhead.
+
+## 2024-06-02 - Redundant Object Allocation and Map Updates
+**Learning:** When retrieving and updating objects from a Map using patterns like `const obj = map.get(key) || { default: true }`, a new object is allocated in memory on every request, even if the key exists in the Map. Furthermore, unconditionally calling `map.set(key, obj)` after mutating the object is redundant because modifying the object reference directly updates the value in the Map.
+**Action:** To reduce GC overhead and unnecessary Map write operations, use an `if (!obj)` block to assign defaults and call `map.set()` only when a new key is added. Mutate the object reference directly for subsequent updates.
