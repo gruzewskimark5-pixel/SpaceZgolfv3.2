@@ -142,9 +142,41 @@ app.post('/api/analyze-swing', async (req, res) => {
   if (frames.length > MAX_FRAMES) return res.status(400).json({ error: `Too many frames. Maximum allowed is ${MAX_FRAMES}.` });
   if (!process.env.XAI_API_KEY) return res.status(500).json({ error: 'XAI_API_KEY not set' });
   try {
-    const r = await fetch('https://api.x.ai/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.XAI_API_KEY}` }, body: JSON.stringify({ model: 'grok-vision-beta', messages: [{ role: 'system', content: 'Golf swing analyst. Return JSON: {tips:string[],issues:string[],score:number}' }, { role: 'user', content: frames.map(f => ({ type: 'image_url', image_url: { url: `data:image/jpeg;base64,${f}` } })) }], max_tokens: 500 }) });
-    const d = await r.json(); const text = d.choices?.[0]?.message?.content || ''; const m = text.match(/\{[\s\S]*\}/); res.json(m ? JSON.parse(m[0]) : { tips: [text], issues: [], score: 0 });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    const payload = {
+      model: 'grok-vision-beta',
+      messages: [
+        {
+          role: 'system',
+          content: 'Golf swing analyst. Return JSON: {tips:string[],issues:string[],score:number}'
+        },
+        {
+          role: 'user',
+          content: frames.map(f => ({
+            type: 'image_url',
+            image_url: { url: `data:image/jpeg;base64,${f}` }
+          }))
+        }
+      ],
+      max_tokens: 500
+    };
+
+    const response = await fetch('https://api.x.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.XAI_API_KEY}`
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await response.json();
+    const text = data.choices?.[0]?.message?.content || '';
+    const match = text.match(/\{[\s\S]*\}/);
+
+    res.json(match ? JSON.parse(match[0]) : { tips: [text], issues: [], score: 0 });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 app.get('*', (req, res) => res.sendFile(join(__dirname, '..', 'index.html')));
 app.listen(port, () => console.log(`🚀 SpaceZgolf live → http://localhost:${port}`));
