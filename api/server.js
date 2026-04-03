@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { calcDI } from '../src/core/zScoreBoard.js';
 dotenv.config();
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -17,14 +18,15 @@ const MAX_FRAMES = 10;
 // ⚡ Bolt: Cache API leaderboard to reduce database queries. Invalidate on new vitals.
 let leaderboardCache = null;
 
-const normalizeZ = z => Math.max(0, Math.min(1, (z + 3) / 6));
-// ⚡ Bolt: Use Math.round instead of Number((...).toFixed(4)) to avoid expensive string allocations and conversions in loops
-// ⚡ Bolt: Removed redundant Number() casts. Caller is responsible for passing numbers.
-const calcDI = (ec, z) => Math.round((ec * 0.65 + normalizeZ(z) * 0.35) * 10000) / 10000;
 app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 app.post('/api/global/vitals', async (req, res) => {
   try {
     const arr = Array.isArray(req.body) ? req.body : [req.body];
+
+    // ⚡ Bolt: Add early return for empty payloads to skip unnecessary processing, database queries, and cache invalidation.
+    if (arr.length === 0) {
+      return res.status(202).json({ status: 'ignored', count: 0 });
+    }
 
     // ⚡ Bolt: Optimize large array mapping to reduce intermediate garbage collection overhead.
     // Pre-allocating the array and using a for-loop provides ~12-18% speedup.
@@ -142,9 +144,41 @@ app.post('/api/analyze-swing', async (req, res) => {
   if (frames.length > MAX_FRAMES) return res.status(400).json({ error: `Too many frames. Maximum allowed is ${MAX_FRAMES}.` });
   if (!process.env.XAI_API_KEY) return res.status(500).json({ error: 'XAI_API_KEY not set' });
   try {
-    const r = await fetch('https://api.x.ai/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.XAI_API_KEY}` }, body: JSON.stringify({ model: 'grok-vision-beta', messages: [{ role: 'system', content: 'Golf swing analyst. Return JSON: {tips:string[],issues:string[],score:number}' }, { role: 'user', content: frames.map(f => ({ type: 'image_url', image_url: { url: `data:image/jpeg;base64,${f}` } })) }], max_tokens: 500 }) });
-    const d = await r.json(); const text = d.choices?.[0]?.message?.content || ''; const m = text.match(/\{[\s\S]*\}/); res.json(m ? JSON.parse(m[0]) : { tips: [text], issues: [], score: 0 });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    const payload = {
+      model: 'grok-vision-beta',
+      messages: [
+        {
+          role: 'system',
+          content: 'Golf swing analyst. Return JSON: {tips:string[],issues:string[],score:number}'
+        },
+        {
+          role: 'user',
+          content: frames.map(f => ({
+            type: 'image_url',
+            image_url: { url: `data:image/jpeg;base64,${f}` }
+          }))
+        }
+      ],
+      max_tokens: 500
+    };
+
+    const response = await fetch('https://api.x.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.XAI_API_KEY}`
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await response.json();
+    const text = data.choices?.[0]?.message?.content || '';
+    const match = text.match(/\{[\s\S]*\}/);
+
+    res.json(match ? JSON.parse(match[0]) : { tips: [text], issues: [], score: 0 });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 app.get('*', (req, res) => res.sendFile(join(__dirname, '..', 'index.html')));
 app.listen(port, () => console.log(`🚀 SpaceZgolf live → http://localhost:${port}`));

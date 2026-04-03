@@ -9,18 +9,33 @@ export const EventBus = (() => {
         listeners.set(event, fns);
       }
       fns.add(fn);
-      return () => listeners.get(event)?.delete(fn);
+      return () => {
+        const currentFns = listeners.get(event);
+        if (currentFns) {
+          currentFns.delete(fn);
+        }
+      };
     },
     emit(event, data) {
       // ⚡ Bolt: Optimize hot path with a single get() check
       const fns = listeners.get(event);
-      if (!fns) return;
+      if (!fns) {
+        return;
+      }
       for (const fn of fns) {
-        try { fn(data); } catch(e) { console.error(`[EventBus]`, e); }
+        try {
+          fn(data);
+        } catch(e) {
+          console.error(`[EventBus]`, e);
+        }
       }
     },
     off(event, fn) {
       listeners.get(event)?.delete(fn);
+      const currentFns = listeners.get(event);
+      if (currentFns) {
+        currentFns.delete(fn);
+      }
     }
   };
 })();
