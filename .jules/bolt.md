@@ -1,3 +1,10 @@
+## 2026-03-02 - [Database N+1 Anti-Pattern]
+**Learning:** Found an N+1 query loop on the backend for saving vitals. Because the POST endpoint processes batched payload, iterating through the array sequentially and invoking a DB upsert creates an O(N) database operations bottleneck.
+**Action:** Use batch upsert natively offered by the Supabase client to convert O(N) trips into O(1).
+
+## 2024-05-24 - [Missing Caching on Polled API]
+**Learning:** The `GET /api/leaderboard` endpoint recalculates dominance index and fetches from DB on every request. With frontend clients polling every 60s, this scales poorly O(C) where C is clients.
+**Action:** Added an in-memory API cache that only invalidates when new vitals are posted (`POST /api/global/vitals`), reducing database reads and computation overhead from O(C) to O(1) between updates.
 ## 2024-05-24 - String building performance vs Template literals
 **Learning:** While manual string concatenation using `+` or a `for` loop with a pre-allocated array may be technically faster than `.map(...).join('')` for inline HTML generation, doing so sacrifices readability of modern template literals. V8 garbage collection overhead can be avoided by pre-allocating an array (`new Array(len)`) and joining it instead of chaining `.map()`, which preserves the readability of template literals inside the loop while still gaining a measurable performance benefit (preventing intermediate array creation by `.map`).
 **Action:** When optimizing array string joins for HTML generation, use a `for` loop with a pre-allocated array (`new Array(len)`) and keep the inner generation logic as a template literal to balance performance (saving GC overhead) with clean, readable code.
