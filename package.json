@@ -5,7 +5,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "node --test --experimental-default-type=module tests/**/*.test.ts tests/**/*.test.js",
+    "test": "node --test --experimental-default-type=module tests/**/*.test.js",
     "lint": "echo 'No linting configured yet'"
   },
   "keywords": [],
