@@ -4,7 +4,10 @@ export const EventBus = (() => {
     on(event, fn) {
       // ⚡ Bolt: Use a single get() to halve hash map lookup overhead
       let fns = listeners.get(event);
-      if (!fns) { fns = new Set(); listeners.set(event, fns); }
+      if (!fns) {
+        fns = new Set();
+        listeners.set(event, fns);
+      }
       fns.add(fn);
       return () => listeners.get(event)?.delete(fn);
     },
@@ -16,6 +19,8 @@ export const EventBus = (() => {
         try { fn(data); } catch(e) { console.error(`[EventBus]`, e); }
       }
     },
-    off(event, fn) { listeners.get(event)?.delete(fn); }
+    off(event, fn) {
+      listeners.get(event)?.delete(fn);
+    }
   };
 })();
