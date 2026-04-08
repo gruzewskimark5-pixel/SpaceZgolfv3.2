@@ -1,6 +1,8 @@
 import { EventBus } from '../core/EventBus.js';
 // ⚡ Bolt: Cache DOM elements to prevent expensive document.getElementById queries on every render
 let els = null;
+// ⚡ Bolt: Cache innerHTML locally to prevent expensive synchronous DOM reads
+let lastHtml = '';
 const initEls = () => {
   if (!els) {
     els = {
@@ -28,7 +30,8 @@ const render = (lb) => {
     newHtml += `<div class="lb-row"><span class="lb-rank">#${i + 1}</span><span class="lb-module">${r.module}</span><span class="lb-di">${r.dominanceIndex.toFixed(4)}</span><span class="${sigClass(r.signal)}">● ${(r.signal || '').toUpperCase()}</span></div>`;
   }
 
-  if (els.rows.innerHTML !== newHtml) {
+  if (lastHtml !== newHtml) {
+    lastHtml = newHtml;
     els.rows.innerHTML = newHtml;
   }
 
