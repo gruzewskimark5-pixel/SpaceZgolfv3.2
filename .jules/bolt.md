@@ -47,6 +47,9 @@
 **Learning:** When retrieving and updating objects from a Map using patterns like `const obj = map.get(key) || { default: true }`, a new object is allocated in memory on every request, even if the key exists in the Map. Furthermore, unconditionally calling `map.set(key, obj)` after mutating the object is redundant because modifying the object reference directly updates the value in the Map.
 **Action:** To reduce GC overhead and unnecessary Map write operations, use an `if (!obj)` block to assign defaults and call `map.set()` only when a new key is added. Mutate the object reference directly for subsequent updates.
 
+## 2024-06-03 - DOM element.innerHTML Serialization Overhead
+**Learning:** Reading `element.innerHTML` from the DOM is an expensive operation because it forces the browser to synchronously serialize the current DOM tree into an HTML string, causing significant overhead in render loops.
+**Action:** When updating the DOM via `innerHTML`, avoid checking against the current DOM state (`element.innerHTML !== newHtml`). Instead, maintain a local javascript variable (e.g., `let lastHtml = '';`) to cache the string and compare against it (`lastHtml !== newHtml`), completely avoiding the expensive synchronous DOM read.
 ## 2024-06-03 - Avoiding innerHTML Reads in Hot Paths
 **Learning:** Reading `element.innerHTML` forces the browser to synchronously serialize the current DOM state into an HTML string, which creates an expensive operations overhead. When checking if an update is needed in a fast polling UI, reading `innerHTML` causes unnecessary lag.
 **Action:** To optimize UI updates that compare HTML strings, maintain a state variable (e.g., `lastHtml`) in JavaScript memory to cache the string. Compare the new HTML against this variable instead of reading from the DOM to avoid the expensive synchronous serialization operation.
