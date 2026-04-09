@@ -1,6 +1,7 @@
 import { EventBus } from '../core/EventBus.js';
 // ⚡ Bolt: Cache DOM elements to prevent expensive document.getElementById queries on every render
 let els = null;
+let lastHtml = '';
 // ⚡ Bolt: Cache innerHTML locally to prevent expensive synchronous DOM reads
 let lastHtml = '';
 // ⚡ Bolt: Cache the last generated HTML string to avoid reading innerHTML, which
