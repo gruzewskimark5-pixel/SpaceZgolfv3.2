@@ -4,20 +4,21 @@ import { StateStore } from '../core/StateStore.js';
 
 let intervalId = null;
 
+// ⚡ Bolt: Use Math.round for precision rounding to avoid heavy string allocation and GC overhead of .toFixed()
 const mock = () => ({
   type: 'mock',
   data: [
     {
       source_module: 'golf_engine',
-      efficiency_coefficient: Number((0.7 + Math.random() * 0.3).toFixed(2)),
-      domain_kpis: { zscore: Number((Math.random() * 4 - 2).toFixed(2)) },
+      efficiency_coefficient: Math.round((0.7 + Math.random() * 0.3) * 100) / 100,
+      domain_kpis: { zscore: Math.round((Math.random() * 4 - 2) * 100) / 100 },
       signal_status: Math.random() > 0.3 ? 'green' : 'yellow',
       system_timestamp: Date.now()
     },
     {
       source_module: 'blue_horizon_re',
-      efficiency_coefficient: Number((0.85 + Math.random() * 0.1).toFixed(2)),
-      domain_kpis: { zscore: Number((Math.random() * 2 - 1).toFixed(2)) },
+      efficiency_coefficient: Math.round((0.85 + Math.random() * 0.1) * 100) / 100,
+      domain_kpis: { zscore: Math.round((Math.random() * 2 - 1) * 100) / 100 },
       signal_status: 'green',
       system_timestamp: Date.now()
     }
