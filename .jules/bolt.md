@@ -50,3 +50,6 @@
 ## 2024-06-03 - DOM element.innerHTML Serialization Overhead
 **Learning:** Reading `element.innerHTML` from the DOM is an expensive operation because it forces the browser to synchronously serialize the current DOM tree into an HTML string, causing significant overhead in render loops.
 **Action:** When updating the DOM via `innerHTML`, avoid checking against the current DOM state (`element.innerHTML !== newHtml`). Instead, maintain a local javascript variable (e.g., `let lastHtml = '';`) to cache the string and compare against it (`lastHtml !== newHtml`), completely avoiding the expensive synchronous DOM read.
+## 2024-06-03 - Avoiding innerHTML Reads in Hot Paths
+**Learning:** Reading `element.innerHTML` forces the browser to synchronously serialize the current DOM state into an HTML string, which creates an expensive operations overhead. When checking if an update is needed in a fast polling UI, reading `innerHTML` causes unnecessary lag.
+**Action:** To optimize UI updates that compare HTML strings, maintain a state variable (e.g., `lastHtml`) in JavaScript memory to cache the string. Compare the new HTML against this variable instead of reading from the DOM to avoid the expensive synchronous serialization operation.

@@ -3,6 +3,10 @@ import { EventBus } from '../core/EventBus.js';
 let els = null;
 // ⚡ Bolt: Cache innerHTML locally to prevent expensive synchronous DOM reads
 let lastHtml = '';
+// ⚡ Bolt: Cache the last generated HTML string to avoid reading innerHTML, which
+// forces the browser to synchronously serialize the DOM and hurts performance.
+let lastHtml = null;
+
 const initEls = () => {
   if (!els) {
     els = {
@@ -33,6 +37,7 @@ const render = (lb) => {
   if (lastHtml !== newHtml) {
     lastHtml = newHtml;
     els.rows.innerHTML = newHtml;
+    lastHtml = newHtml;
   }
 
   els.update.textContent = `LAST UPDATE: ${new Date().toLocaleTimeString()} // v3.2`;
