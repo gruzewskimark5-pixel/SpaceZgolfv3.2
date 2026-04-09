@@ -1,6 +1,10 @@
 import { EventBus } from '../core/EventBus.js';
 // ⚡ Bolt: Cache DOM elements to prevent expensive document.getElementById queries on every render
 let els = null;
+// ⚡ Bolt: Cache the last generated HTML string to avoid reading innerHTML, which
+// forces the browser to synchronously serialize the DOM and hurts performance.
+let lastHtml = null;
+
 const initEls = () => {
   if (!els) {
     els = {
@@ -28,8 +32,9 @@ const render = (lb) => {
     newHtml += `<div class="lb-row"><span class="lb-rank">#${i + 1}</span><span class="lb-module">${r.module}</span><span class="lb-di">${r.dominanceIndex.toFixed(4)}</span><span class="${sigClass(r.signal)}">● ${(r.signal || '').toUpperCase()}</span></div>`;
   }
 
-  if (els.rows.innerHTML !== newHtml) {
+  if (lastHtml !== newHtml) {
     els.rows.innerHTML = newHtml;
+    lastHtml = newHtml;
   }
 
   els.update.textContent = `LAST UPDATE: ${new Date().toLocaleTimeString()} // v3.2`;
