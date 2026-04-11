@@ -53,3 +53,7 @@
 ## 2024-06-03 - Avoiding innerHTML Reads in Hot Paths
 **Learning:** Reading `element.innerHTML` forces the browser to synchronously serialize the current DOM state into an HTML string, which creates an expensive operations overhead. When checking if an update is needed in a fast polling UI, reading `innerHTML` causes unnecessary lag.
 **Action:** To optimize UI updates that compare HTML strings, maintain a state variable (e.g., `lastHtml`) in JavaScript memory to cache the string. Compare the new HTML against this variable instead of reading from the DOM to avoid the expensive synchronous serialization operation.
+
+## 2024-06-04 - Set vs Array Iteration Performance in Hot Paths
+**Learning:** While `Set` provides O(1) addition and deletion, iterating over a `Set` (via `for...of` or `.forEach()`) incurs significant garbage collection and iteration overhead in V8/Node.js compared to a standard `Array` with a `for` loop. In hot paths that are read-heavy but write-light (like `EventBus.emit()` which iterates over many listeners), this overhead is compounding.
+**Action:** When managing collections that are iterated far more often than they are modified (like event listener lists), prefer using an `Array` over a `Set`. Use `.includes(fn)` before `.push(fn)` to prevent duplicates, and `.splice()` for removals, but optimize the hot iteration path with a standard `for` loop over the array.
