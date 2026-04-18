@@ -57,3 +57,7 @@
 ## 2024-06-04 - Set vs Array Iteration Performance in Hot Paths
 **Learning:** While `Set` provides O(1) addition and deletion, iterating over a `Set` (via `for...of` or `.forEach()`) incurs significant garbage collection and iteration overhead in V8/Node.js compared to a standard `Array` with a `for` loop. In hot paths that are read-heavy but write-light (like `EventBus.emit()` which iterates over many listeners), this overhead is compounding.
 **Action:** When managing collections that are iterated far more often than they are modified (like event listener lists), prefer using an `Array` over a `Set`. Use `.includes(fn)` before `.push(fn)` to prevent duplicates, and `.splice()` for removals, but optimize the hot iteration path with a standard `for` loop over the array.
+
+## 2026-04-18 - [Polled API JSON Stringification Overhead]
+**Learning:** For read-heavy API endpoints that are polled frequently by multiple clients (e.g., `GET /api/leaderboard`), calling `res.json(data)` forces a synchronous `JSON.stringify` on the payload for *every* request. For a pre-calculated dataset that only updates occasionally, this O(Clients) overhead is wasteful.
+**Action:** Always consider string caching for such endpoints. Serialize the result to a string (`JSON.stringify`) once during computation, store it (e.g., `leaderboardCache`), and serve it directly via `res.send()` with the header `Content-Type: application/json`. This reduces the serialization overhead to O(1) per update cycle, significantly improving throughput for poll-heavy clients.

@@ -4,7 +4,6 @@ import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { calcDI } from '../src/core/zScoreBoard.js';
 dotenv.config();
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -13,10 +12,9 @@ app.use(cors()); app.use(express.json());
 app.use(express.static(join(__dirname, '..')));
 const supabase = process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY) : null;
 const memStore = new Map();
-// ⚡ Bolt: Cache leaderboard to prevent excessive DB reads on client poll
-let cachedLeaderboard = null;
 const normalizeZ = z => Math.max(0, Math.min(1, (z + 3) / 6));
-const calcDI = (ec, z) => Number((Number(ec) * 0.65 + normalizeZ(Number(z)) * 0.35).toFixed(4));
+// ⚡ Bolt: Use Math.round instead of Number((...).toFixed(4)) to avoid expensive string allocations and conversions
+const calcDI = (ec, z) => Math.round((Number(ec) * 0.65 + normalizeZ(Number(z)) * 0.35) * 10000) / 10000;
 const rateLimits = new Map();
 const MAX_FRAMES = 10;
 // ⚡ Bolt: Cache API leaderboard to reduce database queries. Invalidate on new vitals.
@@ -56,8 +54,6 @@ app.post('/api/global/vitals', async (req, res) => {
     } else {
       rows.forEach(r => memStore.set(r.source_module, r));
     }
-    // ⚡ Bolt: Invalidate cache when new data arrives
-    cachedLeaderboard = null;
     // ⚡ Bolt: Invalidate leaderboard cache
     leaderboardCache = null;
     res.status(202).json({ status: 'accepted', count: arr.length });
@@ -65,17 +61,9 @@ app.post('/api/global/vitals', async (req, res) => {
 });
 app.get('/api/leaderboard', async (req, res) => {
   try {
-    // ⚡ Bolt: Return cached data if available (O(1) vs O(N) DB query)
-    if (cachedLeaderboard) return res.json(cachedLeaderboard);
-
-    const rows = supabase ? (await supabase.from('vitals').select('*')).data || [] : Array.from(memStore.values());
-    const result = rows.map(r => ({ module: r.source_module?.includes('golf') ? 'SPACEZGOLF' : 'BLUE HORIZON', dominanceIndex: calcDI(r.efficiency_coefficient, r.zscore), efficiency: Number(r.efficiency_coefficient), zscore: Number(r.zscore), signal: r.signal_status, timestamp: r.system_timestamp })).sort((a, b) => b.dominanceIndex - a.dominanceIndex).map((r, i) => ({ ...r, rank: i + 1 }));
-
-    // ⚡ Bolt: Store the result in cache
-    cachedLeaderboard = result;
-    res.json(result);
     // ⚡ Bolt: Serve pre-serialized JSON from cache if available to prevent
     // constant DB polling and avoid JSON.stringify overhead on every request
+    // This converts O(Clients) JSON stringification overhead to O(1)
     if (leaderboardCache) {
       res.setHeader('Content-Type', 'application/json');
       return res.send(leaderboardCache);
