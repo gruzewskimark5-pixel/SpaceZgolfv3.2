@@ -4,30 +4,6 @@ import { StateStore } from '../core/StateStore.js';
 
 let intervalId = null;
 
-const mock = () => {
-  // ⚡ Bolt: Cache system timestamp to avoid redundant Date.now() calls
-  const now = Date.now();
-  return {
-    type: 'mock',
-    data: [
-      {
-        source_module: 'golf_engine',
-        // ⚡ Bolt: Use Math.round instead of Number(...toFixed(2)) to prevent expensive string allocations
-        efficiency_coefficient: Math.round((0.7 + Math.random() * 0.3) * 100) / 100,
-        domain_kpis: { zscore: Math.round((Math.random() * 4 - 2) * 100) / 100 },
-        signal_status: Math.random() > 0.3 ? 'green' : 'yellow',
-        system_timestamp: now
-      },
-      {
-        source_module: 'blue_horizon_re',
-        efficiency_coefficient: Math.round((0.85 + Math.random() * 0.1) * 100) / 100,
-        domain_kpis: { zscore: Math.round((Math.random() * 2 - 1) * 100) / 100 },
-        signal_status: 'green',
-        system_timestamp: now
-      }
-    ]
-  };
-};
 // ⚡ Bolt: Use Math.round for precision rounding to avoid heavy string allocation and GC overhead of .toFixed()
 const mock = () => ({
   type: 'mock',
