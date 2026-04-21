@@ -57,3 +57,6 @@
 ## 2024-06-04 - Set vs Array Iteration Performance in Hot Paths
 **Learning:** While `Set` provides O(1) addition and deletion, iterating over a `Set` (via `for...of` or `.forEach()`) incurs significant garbage collection and iteration overhead in V8/Node.js compared to a standard `Array` with a `for` loop. In hot paths that are read-heavy but write-light (like `EventBus.emit()` which iterates over many listeners), this overhead is compounding.
 **Action:** When managing collections that are iterated far more often than they are modified (like event listener lists), prefer using an `Array` over a `Set`. Use `.includes(fn)` before `.push(fn)` to prevent duplicates, and `.splice()` for removals, but optimize the hot iteration path with a standard `for` loop over the array.
+## 2024-06-05 - Hoisting invariant function calls in mock data generation
+**Learning:** Calling invariant functions like `Date.now()` multiple times within an array mapping or object literal allocation creates unnecessary system call overhead.
+**Action:** When constructing arrays or objects where a function return value remains constant (e.g., timestamps in mock data), hoist the function call outside the array definition and reuse the cached variable to minimize redundant allocations.
