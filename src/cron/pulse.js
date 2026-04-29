@@ -28,26 +28,6 @@ const mock = () => {
     ]
   };
 };
-// ⚡ Bolt: Use Math.round for precision rounding to avoid heavy string allocation and GC overhead of .toFixed()
-const mock = () => ({
-  type: 'mock',
-  data: [
-    {
-      source_module: 'golf_engine',
-      efficiency_coefficient: Math.round((0.7 + Math.random() * 0.3) * 100) / 100,
-      domain_kpis: { zscore: Math.round((Math.random() * 4 - 2) * 100) / 100 },
-      signal_status: Math.random() > 0.3 ? 'green' : 'yellow',
-      system_timestamp: Date.now()
-    },
-    {
-      source_module: 'blue_horizon_re',
-      efficiency_coefficient: Math.round((0.85 + Math.random() * 0.1) * 100) / 100,
-      domain_kpis: { zscore: Math.round((Math.random() * 2 - 1) * 100) / 100 },
-      signal_status: 'green',
-      system_timestamp: Date.now()
-    }
-  ]
-});
 
 const fetchAPI = async () => {
   try {

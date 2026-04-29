@@ -13,10 +13,6 @@ app.use(cors()); app.use(express.json());
 app.use(express.static(join(__dirname, '..')));
 const supabase = process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY) : null;
 const memStore = new Map();
-// ⚡ Bolt: Cache leaderboard to prevent excessive DB reads on client poll
-let cachedLeaderboard = null;
-const normalizeZ = z => Math.max(0, Math.min(1, (z + 3) / 6));
-const calcDI = (ec, z) => Number((Number(ec) * 0.65 + normalizeZ(Number(z)) * 0.35).toFixed(4));
 const rateLimits = new Map();
 const MAX_FRAMES = 10;
 // ⚡ Bolt: Cache API leaderboard to reduce database queries. Invalidate on new vitals.
@@ -52,12 +48,14 @@ app.post('/api/global/vitals', async (req, res) => {
     // Optimization: Batch upsert instead of N+1 queries. Reduces network roundtrips from O(N) to O(1).
     if (supabase) {
       const { error } = await supabase.from('vitals').upsert(rows, { onConflict: 'source_module' });
-      if (error) rows.forEach(r => memStore.set(r.source_module, r));
+      if (error) {
+        for (let i = 0; i < len; i++) memStore.set(rows[i].source_module, rows[i]);
+      }
     } else {
-      rows.forEach(r => memStore.set(r.source_module, r));
+      // ⚡ Bolt: Replace forEach with a standard for loop. This provides a minor
+      // speedup by avoiding callback allocation overhead when populating the memStore map.
+      for (let i = 0; i < len; i++) memStore.set(rows[i].source_module, rows[i]);
     }
-    // ⚡ Bolt: Invalidate cache when new data arrives
-    cachedLeaderboard = null;
     // ⚡ Bolt: Invalidate leaderboard cache
     leaderboardCache = null;
     res.status(202).json({ status: 'accepted', count: arr.length });
@@ -65,15 +63,6 @@ app.post('/api/global/vitals', async (req, res) => {
 });
 app.get('/api/leaderboard', async (req, res) => {
   try {
-    // ⚡ Bolt: Return cached data if available (O(1) vs O(N) DB query)
-    if (cachedLeaderboard) return res.json(cachedLeaderboard);
-
-    const rows = supabase ? (await supabase.from('vitals').select('*')).data || [] : Array.from(memStore.values());
-    const result = rows.map(r => ({ module: r.source_module?.includes('golf') ? 'SPACEZGOLF' : 'BLUE HORIZON', dominanceIndex: calcDI(r.efficiency_coefficient, r.zscore), efficiency: Number(r.efficiency_coefficient), zscore: Number(r.zscore), signal: r.signal_status, timestamp: r.system_timestamp })).sort((a, b) => b.dominanceIndex - a.dominanceIndex).map((r, i) => ({ ...r, rank: i + 1 }));
-
-    // ⚡ Bolt: Store the result in cache
-    cachedLeaderboard = result;
-    res.json(result);
     // ⚡ Bolt: Serve pre-serialized JSON from cache if available to prevent
     // constant DB polling and avoid JSON.stringify overhead on every request
     if (leaderboardCache) {
@@ -86,27 +75,29 @@ app.get('/api/leaderboard', async (req, res) => {
     // having to handle multiple intermediate allocations while still preserving
     // immutability of the source objects and array.
     let data;
-    const mapRow = (r) => {
-      // ⚡ Bolt: Cache parsed numbers to avoid redundant string-to-number conversions
-      // This cuts the V8 Number() parsing overhead in half for large array loops
-      const ec = Number(r.efficiency_coefficient);
-      const zs = Number(r.zscore);
-      return {
-        module: r.source_module?.includes('golf') ? 'SPACEZGOLF' : 'BLUE HORIZON',
-        dominanceIndex: calcDI(ec, zs),
-        efficiency: ec,
-        zscore: zs,
-        signal: r.signal_status,
-        timestamp: r.system_timestamp
-      };
-    };
 
     if (supabase) {
       const rows = (await supabase.from('vitals').select('*')).data || [];
       const len = rows.length;
       data = new Array(len);
       for (let i = 0; i < len; i++) {
-        data[i] = mapRow(rows[i]);
+        const r = rows[i];
+        const ec = Number(r.efficiency_coefficient);
+        const zs = Number(r.zscore);
+        // ⚡ Bolt: Inlined math calculations directly into the loop body to avoid
+        // the overhead of function calls (calcDI, normalizeZ) and closure allocations.
+        // This provides measurable speedups in large V8 hot loops.
+        const normZ = Math.max(0, Math.min(1, (zs + 3) / 6));
+        const dominanceIndex = Math.round((ec * 0.65 + normZ * 0.35) * 10000) / 10000;
+
+        data[i] = {
+          module: r.source_module?.includes('golf') ? 'SPACEZGOLF' : 'BLUE HORIZON',
+          dominanceIndex,
+          efficiency: ec,
+          zscore: zs,
+          signal: r.signal_status,
+          timestamp: r.system_timestamp
+        };
       }
     } else {
       // ⚡ Bolt: Iterate memStore.values() directly to prevent the GC overhead
@@ -116,7 +107,21 @@ app.get('/api/leaderboard', async (req, res) => {
       data = new Array(len);
       let i = 0;
       for (const r of memStore.values()) {
-        data[i++] = mapRow(r);
+        const ec = Number(r.efficiency_coefficient);
+        const zs = Number(r.zscore);
+        // ⚡ Bolt: Inlined math calculations directly into the loop body to avoid
+        // the overhead of function calls (calcDI, normalizeZ) and closure allocations.
+        const normZ = Math.max(0, Math.min(1, (zs + 3) / 6));
+        const dominanceIndex = Math.round((ec * 0.65 + normZ * 0.35) * 10000) / 10000;
+
+        data[i++] = {
+          module: r.source_module?.includes('golf') ? 'SPACEZGOLF' : 'BLUE HORIZON',
+          dominanceIndex,
+          efficiency: ec,
+          zscore: zs,
+          signal: r.signal_status,
+          timestamp: r.system_timestamp
+        };
       }
     }
     data.sort((a, b) => b.dominanceIndex - a.dominanceIndex);

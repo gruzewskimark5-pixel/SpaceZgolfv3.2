@@ -12,11 +12,17 @@ export const zScoreBoard = (vitalsArray) => {
   const result = new Array(len);
   for (let i = 0; i < len; i++) {
     const v = vitalsArray[i];
-    const dominanceIndex = calcDI(v.efficiency_coefficient, v.domain_kpis.zscore);
+    const ec = Number(v.efficiency_coefficient);
+    const zs = Number(v.domain_kpis.zscore);
+    // ⚡ Bolt: Inlined math calculations directly into the loop body to avoid
+    // the overhead of function calls (calcDI, normalizeZ) and closure allocations.
+    const normZ = Math.max(0, Math.min(1, (zs + 3) / 6));
+    const dominanceIndex = Math.round((ec * 0.65 + normZ * 0.35) * 10000) / 10000;
+
     result[i] = {
       module: v.source_module.includes('golf') ? 'SPACEZGOLF' : 'BLUE HORIZON',
-      ec: v.efficiency_coefficient,
-      z: v.domain_kpis.zscore,
+      ec,
+      z: zs,
       dominanceIndex,
       signal: v.signal_status,
       timestamp: v.system_timestamp
