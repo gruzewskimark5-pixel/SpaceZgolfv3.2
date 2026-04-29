@@ -57,3 +57,7 @@
 ## 2024-06-04 - Set vs Array Iteration Performance in Hot Paths
 **Learning:** While `Set` provides O(1) addition and deletion, iterating over a `Set` (via `for...of` or `.forEach()`) incurs significant garbage collection and iteration overhead in V8/Node.js compared to a standard `Array` with a `for` loop. In hot paths that are read-heavy but write-light (like `EventBus.emit()` which iterates over many listeners), this overhead is compounding.
 **Action:** When managing collections that are iterated far more often than they are modified (like event listener lists), prefer using an `Array` over a `Set`. Use `.includes(fn)` before `.push(fn)` to prevent duplicates, and `.splice()` for removals, but optimize the hot iteration path with a standard `for` loop over the array.
+
+## 2024-04-29 - Inline Calculations in V8 Hot Loops
+**Learning:** Extracting small mathematical calculations into helper functions or using closure functions introduces measurable function call and closure allocation overhead in V8 hot loops (e.g., mapping over large datasets like leaderboard caching).
+**Action:** When mapping over large memory stores in high-throughput APIs, inline the calculations directly into the loop body to reduce execution time.
