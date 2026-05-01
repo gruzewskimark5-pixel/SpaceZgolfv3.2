@@ -57,3 +57,7 @@
 ## 2024-06-04 - Set vs Array Iteration Performance in Hot Paths
 **Learning:** While `Set` provides O(1) addition and deletion, iterating over a `Set` (via `for...of` or `.forEach()`) incurs significant garbage collection and iteration overhead in V8/Node.js compared to a standard `Array` with a `for` loop. In hot paths that are read-heavy but write-light (like `EventBus.emit()` which iterates over many listeners), this overhead is compounding.
 **Action:** When managing collections that are iterated far more often than they are modified (like event listener lists), prefer using an `Array` over a `Set`. Use `.includes(fn)` before `.push(fn)` to prevent duplicates, and `.splice()` for removals, but optimize the hot iteration path with a standard `for` loop over the array.
+
+## 2024-06-05 - Unreachable Optimized Code
+**Learning:** An older, unoptimized implementation with an early return (`if (cachedLeaderboard) return res.json(cachedLeaderboard); `) was left in the `GET /api/leaderboard` endpoint. Because it executed first and returned the response, it shadowed the newer, highly optimized pre-serialized string caching implementation (`leaderboardCache`), making the optimized code completely unreachable.
+**Action:** When implementing new cache strategies or optimizations, always ensure to completely remove or refactor any older overlapping logic that might intercept the execution path and prevent the new optimization from running.
