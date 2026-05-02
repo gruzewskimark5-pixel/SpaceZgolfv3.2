@@ -4,7 +4,6 @@ import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { calcDI } from '../src/core/zScoreBoard.js';
 dotenv.config();
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -65,21 +64,15 @@ app.post('/api/global/vitals', async (req, res) => {
 });
 app.get('/api/leaderboard', async (req, res) => {
   try {
-    // ⚡ Bolt: Return cached data if available (O(1) vs O(N) DB query)
-    if (cachedLeaderboard) return res.json(cachedLeaderboard);
-
-    const rows = supabase ? (await supabase.from('vitals').select('*')).data || [] : Array.from(memStore.values());
-    const result = rows.map(r => ({ module: r.source_module?.includes('golf') ? 'SPACEZGOLF' : 'BLUE HORIZON', dominanceIndex: calcDI(r.efficiency_coefficient, r.zscore), efficiency: Number(r.efficiency_coefficient), zscore: Number(r.zscore), signal: r.signal_status, timestamp: r.system_timestamp })).sort((a, b) => b.dominanceIndex - a.dominanceIndex).map((r, i) => ({ ...r, rank: i + 1 }));
-
-    // ⚡ Bolt: Store the result in cache
-    cachedLeaderboard = result;
-    res.json(result);
     // ⚡ Bolt: Serve pre-serialized JSON from cache if available to prevent
     // constant DB polling and avoid JSON.stringify overhead on every request
     if (leaderboardCache) {
       res.setHeader('Content-Type', 'application/json');
       return res.send(leaderboardCache);
     }
+
+    // ⚡ Bolt: Return cached data if available (O(1) vs O(N) DB query)
+    if (cachedLeaderboard) return res.json(cachedLeaderboard);
 
     // ⚡ Bolt: Optimize large array processing by pre-allocating an array and using
     // a for loop instead of .map(). This prevents the V8 garbage collector from
