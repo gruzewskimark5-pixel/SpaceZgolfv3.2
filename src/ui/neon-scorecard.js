@@ -15,7 +15,6 @@ const initEls = () => {
     };
   }
 };
-const sigClass = s => s === 'green' ? 'lb-signal-green' : s === 'yellow' ? 'lb-signal-yellow' : 'lb-signal-red';
 const render = (lb) => {
   const top = lb[0]; if (!top) return;
   initEls();
@@ -25,11 +24,26 @@ const render = (lb) => {
   // ⚡ Bolt: Prevent unnecessary DOM layout/paint thrashing by only updating innerHTML if changed
   // ⚡ Bolt: Refactored inline HTML generation to use direct string concatenation (`+=`)
   // String concatenation is over 2.5x faster in V8 than pre-allocating arrays and calling .join('')
+  // ⚡ Bolt: Eliminated template literal parsing overhead and expensive inline function calls
+  // by using direct string concatenation and mapping signal classes explicitly.
   const len = lb.length;
   let newHtml = '';
   for (let i = 0; i < len; i++) {
     const r = lb[i];
-    newHtml += `<div class="lb-row"><span class="lb-rank">#${i + 1}</span><span class="lb-module">${r.module}</span><span class="lb-di">${r.dominanceIndex.toFixed(4)}</span><span class="${sigClass(r.signal)}">● ${(r.signal || '').toUpperCase()}</span></div>`;
+    const sig = r.signal || '';
+    let sClass = 'lb-signal-red';
+    let sUpper = 'RED';
+    if (sig === 'green') {
+        sClass = 'lb-signal-green';
+        sUpper = 'GREEN';
+    } else if (sig === 'yellow') {
+        sClass = 'lb-signal-yellow';
+        sUpper = 'YELLOW';
+    } else if (sig !== 'red') {
+        sUpper = sig.toUpperCase();
+    }
+
+    newHtml += '<div class="lb-row"><span class="lb-rank">#' + (i + 1) + '</span><span class="lb-module">' + r.module + '</span><span class="lb-di">' + r.dominanceIndex.toFixed(4) + '</span><span class="' + sClass + '">● ' + sUpper + '</span></div>';
   }
 
   if (lastHtml !== newHtml) {
