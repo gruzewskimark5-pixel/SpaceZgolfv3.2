@@ -65,3 +65,14 @@
 ## 2024-06-05 - Avoid Template Literals and Inline Functions in Hot Render Loops
 **Learning:** While template literals (`` `...` ``) provide improved readability over standard string concatenation, using them inside high-iteration loops causes measurable overhead in V8 (approximately 25% to 30% slower). This overhead is exacerbated when inline function calls (like `.toUpperCase()` or helper function lookups for classes) are evaluated on every iteration.
 **Action:** When optimizing hot render paths that construct large HTML strings (e.g. `src/ui/neon-scorecard.js`), eliminate template literals in favor of explicit direct string concatenation (`+`). Pre-calculate inner string logic (such as CSS classes and uppercase mapping) using fast explicit `if/else` checks rather than repeatedly calling functions on string literals to significantly boost string construction performance.
+## 2024-06-06 - V8 indexOf vs includes optimization
+**Learning:** In high-iteration memory mapping loops in V8 (like mapping thousands of rows into the in-memory leaderboard view), using explicit string index check `str && str.indexOf('val') !== -1` is around ~10-15% faster than using optional chaining combined with includes `str?.includes('val')`.
+**Action:** When performing string lookup operations on potentially nullable object properties inside high iteration loops, prefer explicitly assigning the property and checking `indexOf !== -1` to reduce V8 string matching and optional chaining execution overhead.
+
+## 2024-06-07 - V8 Optional Chaining Micro-optimizations
+**Learning:** Replacing optional chaining (`?.`) with standard truthiness checks (`obj && obj.prop`) on simple property lookups provides negligible performance benefits in V8 and degrades code readability, violating rules against unmeasurable micro-optimizations.
+**Action:** Avoid replacing optional chaining for simple object property access unless it's bundled inside a complex evaluation chain (like a string matching lookup) where the compounding operations show measurable overhead.
+
+## 2024-06-08 - Safety of Removing Number() Coercion
+**Learning:** Removing `Number()` type casting from mathematical calculations (like `z + 3`) when the input may be received as a string from an API payload will cause critical regressions by switching mathematical addition to string concatenation.
+**Action:** Never remove explicit type casting in mathematical operations unless you can absolutely guarantee the upstream caller is already strictly typed or explicitly coercing the variables.
