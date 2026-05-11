@@ -65,3 +65,7 @@
 ## 2024-06-05 - Avoid Template Literals and Inline Functions in Hot Render Loops
 **Learning:** While template literals (`` `...` ``) provide improved readability over standard string concatenation, using them inside high-iteration loops causes measurable overhead in V8 (approximately 25% to 30% slower). This overhead is exacerbated when inline function calls (like `.toUpperCase()` or helper function lookups for classes) are evaluated on every iteration.
 **Action:** When optimizing hot render paths that construct large HTML strings (e.g. `src/ui/neon-scorecard.js`), eliminate template literals in favor of explicit direct string concatenation (`+`). Pre-calculate inner string logic (such as CSS classes and uppercase mapping) using fast explicit `if/else` checks rather than repeatedly calling functions on string literals to significantly boost string construction performance.
+
+## 2024-06-06 - Unbounded Map Memory Leaks in Node.js
+**Learning:** Storing transient data (like IP-based rate limiting records) in an in-memory `Map` without a cleanup mechanism causes unbounded memory growth over time. As new, unique IP addresses make requests to the server, the `Map` accumulates stale entries indefinitely. This is a subtle but critical backend memory leak that eventually degrades performance and leads to OOM crashes on long-running processes.
+**Action:** When implementing in-memory caching or rate limiting using `Map`, always ensure a `setInterval` or TTL cleanup mechanism exists to periodically sweep and delete expired entries, reclaiming memory.
