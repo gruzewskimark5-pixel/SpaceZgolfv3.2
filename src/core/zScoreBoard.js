@@ -1,4 +1,5 @@
-export const normalizeZ = (z) => Math.max(0, Math.min(1, (z + 3) / 6));
+// ⚡ Bolt: Replace Math.max/min with explicit ternaries to avoid function overhead
+export const normalizeZ = (z) => { const v = (z + 3) / 6; return v < 0 ? 0 : (v > 1 ? 1 : v); };
 
 // ⚡ Bolt: Use Math.round instead of Number((...).toFixed(4)) to avoid expensive string allocations and conversions in loops
 export const calcDI = (ec, z) => Math.round((ec * 0.65 + normalizeZ(z) * 0.35) * 10000) / 10000;

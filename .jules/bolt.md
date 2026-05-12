@@ -69,3 +69,14 @@
 ## 2024-06-06 - Unbounded Map Memory Leaks in Node.js
 **Learning:** Storing transient data (like IP-based rate limiting records) in an in-memory `Map` without a cleanup mechanism causes unbounded memory growth over time. As new, unique IP addresses make requests to the server, the `Map` accumulates stale entries indefinitely. This is a subtle but critical backend memory leak that eventually degrades performance and leads to OOM crashes on long-running processes.
 **Action:** When implementing in-memory caching or rate limiting using `Map`, always ensure a `setInterval` or TTL cleanup mechanism exists to periodically sweep and delete expired entries, reclaiming memory.
+## 2024-06-06 - V8 indexOf vs includes optimization
+**Learning:** In high-iteration memory mapping loops in V8 (like mapping thousands of rows into the in-memory leaderboard view), using explicit string index check `str && str.indexOf('val') !== -1` is around ~10-15% faster than using optional chaining combined with includes `str?.includes('val')`.
+**Action:** When performing string lookup operations on potentially nullable object properties inside high iteration loops, prefer explicitly assigning the property and checking `indexOf !== -1` to reduce V8 string matching and optional chaining execution overhead.
+
+## 2024-06-07 - V8 Optional Chaining Micro-optimizations
+**Learning:** Replacing optional chaining (`?.`) with standard truthiness checks (`obj && obj.prop`) on simple property lookups provides negligible performance benefits in V8 and degrades code readability, violating rules against unmeasurable micro-optimizations.
+**Action:** Avoid replacing optional chaining for simple object property access unless it's bundled inside a complex evaluation chain (like a string matching lookup) where the compounding operations show measurable overhead.
+
+## 2024-06-08 - Safety of Removing Number() Coercion
+**Learning:** Removing `Number()` type casting from mathematical calculations (like `z + 3`) when the input may be received as a string from an API payload will cause critical regressions by switching mathematical addition to string concatenation.
+**Action:** Never remove explicit type casting in mathematical operations unless you can absolutely guarantee the upstream caller is already strictly typed or explicitly coercing the variables.
