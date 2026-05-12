@@ -19,6 +19,18 @@ let cachedLeaderboard = null;
 const normalizeZ = z => { const v = (z + 3) / 6; return v < 0 ? 0 : (v > 1 ? 1 : v); };
 const calcDI = (ec, z) => Math.round((ec * 0.65 + normalizeZ(z) * 0.35) * 10000) / 10000;
 const rateLimits = new Map();
+
+// ⚡ Bolt: Periodically clean up expired rate limits to prevent unbounded memory growth (memory leak)
+// from old IP addresses accumulating in the rateLimits Map over time.
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, limit] of rateLimits.entries()) {
+    if (now > limit.reset) {
+      rateLimits.delete(ip);
+    }
+  }
+}, 600000); // 10 minutes
+
 const MAX_FRAMES = 10;
 // ⚡ Bolt: Cache API leaderboard to reduce database queries. Invalidate on new vitals.
 let leaderboardCache = null;
