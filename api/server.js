@@ -15,8 +15,9 @@ const supabase = process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_K
 const memStore = new Map();
 // ⚡ Bolt: Cache leaderboard to prevent excessive DB reads on client poll
 let cachedLeaderboard = null;
-const normalizeZ = z => Math.max(0, Math.min(1, (z + 3) / 6));
-const calcDI = (ec, z) => Math.round((Number(ec) * 0.65 + normalizeZ(Number(z)) * 0.35) * 10000) / 10000;
+// ⚡ Bolt: Replace Math.max/min with explicit ternaries to avoid function overhead
+const normalizeZ = z => { const v = (z + 3) / 6; return v < 0 ? 0 : (v > 1 ? 1 : v); };
+const calcDI = (ec, z) => Math.round((ec * 0.65 + normalizeZ(z) * 0.35) * 10000) / 10000;
 const rateLimits = new Map();
 const MAX_FRAMES = 10;
 // ⚡ Bolt: Cache API leaderboard to reduce database queries. Invalidate on new vitals.
@@ -40,10 +41,12 @@ app.post('/api/global/vitals', async (req, res) => {
     const now = new Date().toISOString();
     for (let i = 0; i < len; i++) {
       const v = arr[i];
+      const kpis = v.domain_kpis;
       rows[i] = {
         source_module: v.source_module,
         efficiency_coefficient: v.efficiency_coefficient,
-        zscore: v.domain_kpis?.zscore ?? 0,
+        // ⚡ Bolt: Use direct access instead of optional chaining (?.zscore) to reduce V8 execution overhead
+        zscore: kpis ? (kpis.zscore ?? 0) : 0,
         signal_status: v.signal_status,
         system_timestamp: v.system_timestamp || now
       };
@@ -87,8 +90,10 @@ app.get('/api/leaderboard', async (req, res) => {
         const r = rows[i];
         const ec = Number(r.efficiency_coefficient);
         const zs = Number(r.zscore);
+        const sm = r.source_module;
         data[i] = {
-          module: r.source_module?.includes('golf') ? 'SPACEZGOLF' : 'BLUE HORIZON',
+          // ⚡ Bolt: Use explicit indexOf check instead of optional chaining with .includes for faster string search overhead
+          module: sm && sm.indexOf('golf') !== -1 ? 'SPACEZGOLF' : 'BLUE HORIZON',
           dominanceIndex: calcDI(ec, zs),
           efficiency: ec,
           zscore: zs,
@@ -106,8 +111,10 @@ app.get('/api/leaderboard', async (req, res) => {
       for (const r of memStore.values()) {
         const ec = Number(r.efficiency_coefficient);
         const zs = Number(r.zscore);
+        const sm = r.source_module;
         data[i++] = {
-          module: r.source_module?.includes('golf') ? 'SPACEZGOLF' : 'BLUE HORIZON',
+          // ⚡ Bolt: Use explicit indexOf check instead of optional chaining with .includes for faster string search overhead
+          module: sm && sm.indexOf('golf') !== -1 ? 'SPACEZGOLF' : 'BLUE HORIZON',
           dominanceIndex: calcDI(ec, zs),
           efficiency: ec,
           zscore: zs,
