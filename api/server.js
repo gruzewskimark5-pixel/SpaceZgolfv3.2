@@ -34,6 +34,7 @@ setInterval(() => {
 const MAX_FRAMES = 10;
 // ⚡ Bolt: Cache API leaderboard to reduce database queries. Invalidate on new vitals.
 let leaderboardCache = null;
+let leaderboardEtag = null;
 
 app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 app.post('/api/global/vitals', async (req, res) => {
@@ -75,15 +76,23 @@ app.post('/api/global/vitals', async (req, res) => {
     cachedLeaderboard = null;
     // ⚡ Bolt: Invalidate leaderboard cache
     leaderboardCache = null;
+    leaderboardEtag = null;
     res.status(202).json({ status: 'accepted', count: arr.length });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 app.get('/api/leaderboard', async (req, res) => {
   try {
+    // ⚡ Bolt: Add explicit 304 Early Return check based on precomputed ETag to bypass Express's
+    // expensive default synchronous MD5 string hashing on every request.
+    if (leaderboardEtag && req.headers['if-none-match'] === leaderboardEtag) {
+      return res.status(304).end();
+    }
+
     // ⚡ Bolt: Serve pre-serialized JSON from cache if available to prevent
     // constant DB polling and avoid JSON.stringify overhead on every request
     if (leaderboardCache) {
       res.setHeader('Content-Type', 'application/json');
+      res.setHeader('ETag', leaderboardEtag);
       return res.send(leaderboardCache);
     }
 
@@ -145,7 +154,10 @@ app.get('/api/leaderboard', async (req, res) => {
     // ⚡ Bolt: Serialize once and store string in cache
     const serializedData = JSON.stringify(data);
     leaderboardCache = serializedData;
+    leaderboardEtag = 'W/"' + Date.now().toString(36) + '"';
+
     res.setHeader('Content-Type', 'application/json');
+    res.setHeader('ETag', leaderboardEtag);
     res.send(serializedData);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
