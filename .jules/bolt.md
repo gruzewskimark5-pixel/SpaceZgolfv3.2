@@ -80,3 +80,7 @@
 ## 2024-06-08 - Safety of Removing Number() Coercion
 **Learning:** Removing `Number()` type casting from mathematical calculations (like `z + 3`) when the input may be received as a string from an API payload will cause critical regressions by switching mathematical addition to string concatenation.
 **Action:** Never remove explicit type casting in mathematical operations unless you can absolutely guarantee the upstream caller is already strictly typed or explicitly coercing the variables.
+
+## 2024-06-09 - Express.js res.send() ETag Computation Overhead
+**Learning:** Express.js's default `res.send()` synchronously computes an MD5 hash to generate ETags for string payloads. For high-traffic endpoints returning large cached strings (like the pre-serialized leaderboard), this forces the server to redundantly re-calculate the exact same MD5 hash on every single request.
+**Action:** When caching large string payloads in Express, precompute the ETag when the cache is populated and set it explicitly using `res.setHeader('ETag', etag)`. Express will then skip its internal hashing logic and efficiently handle 304 Not Modified responses based on the client's `If-None-Match` header.
