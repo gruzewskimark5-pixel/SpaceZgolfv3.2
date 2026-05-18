@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import crypto from 'crypto';
 
 dotenv.config();
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -34,6 +35,7 @@ setInterval(() => {
 const MAX_FRAMES = 10;
 // ⚡ Bolt: Cache API leaderboard to reduce database queries. Invalidate on new vitals.
 let leaderboardCache = null;
+let leaderboardETag = null;
 
 app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 app.post('/api/global/vitals', async (req, res) => {
@@ -75,6 +77,7 @@ app.post('/api/global/vitals', async (req, res) => {
     cachedLeaderboard = null;
     // ⚡ Bolt: Invalidate leaderboard cache
     leaderboardCache = null;
+    leaderboardETag = null;
     res.status(202).json({ status: 'accepted', count: arr.length });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -84,6 +87,10 @@ app.get('/api/leaderboard', async (req, res) => {
     // constant DB polling and avoid JSON.stringify overhead on every request
     if (leaderboardCache) {
       res.setHeader('Content-Type', 'application/json');
+      // ⚡ Bolt: Set precomputed ETag to prevent Express from synchronously computing MD5 on every cache hit
+      if (leaderboardETag) {
+        res.setHeader('ETag', leaderboardETag);
+      }
       return res.send(leaderboardCache);
     }
 
@@ -145,7 +152,16 @@ app.get('/api/leaderboard', async (req, res) => {
     // ⚡ Bolt: Serialize once and store string in cache
     const serializedData = JSON.stringify(data);
     leaderboardCache = serializedData;
+
+    // ⚡ Bolt: Precompute ETag for the string payload when caching.
+    // Express res.send() natively computes this synchronously on every request for strings.
+    // By providing it ahead of time, Express skips the hash operation and automatically
+    // handles 304 Not Modified based on the client's If-None-Match header.
+    const hash = crypto.createHash('md5').update(serializedData).digest('base64').substring(0, 27);
+    leaderboardETag = 'W/"' + serializedData.length.toString(16) + '-' + hash + '"';
+
     res.setHeader('Content-Type', 'application/json');
+    res.setHeader('ETag', leaderboardETag);
     res.send(serializedData);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
