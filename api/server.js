@@ -1,4 +1,5 @@
 import express from 'express';
+import crypto from 'crypto';
 import cors from 'cors';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
@@ -34,6 +35,7 @@ setInterval(() => {
 const MAX_FRAMES = 10;
 // ⚡ Bolt: Cache API leaderboard to reduce database queries. Invalidate on new vitals.
 let leaderboardCache = null;
+let leaderboardETag = null;
 
 app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 app.post('/api/global/vitals', async (req, res) => {
@@ -75,6 +77,7 @@ app.post('/api/global/vitals', async (req, res) => {
     cachedLeaderboard = null;
     // ⚡ Bolt: Invalidate leaderboard cache
     leaderboardCache = null;
+    leaderboardETag = null;
     res.status(202).json({ status: 'accepted', count: arr.length });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -84,6 +87,7 @@ app.get('/api/leaderboard', async (req, res) => {
     // constant DB polling and avoid JSON.stringify overhead on every request
     if (leaderboardCache) {
       res.setHeader('Content-Type', 'application/json');
+      res.setHeader('ETag', leaderboardETag);
       return res.send(leaderboardCache);
     }
 
@@ -145,7 +149,10 @@ app.get('/api/leaderboard', async (req, res) => {
     // ⚡ Bolt: Serialize once and store string in cache
     const serializedData = JSON.stringify(data);
     leaderboardCache = serializedData;
+    // ⚡ Bolt: Precompute ETag to avoid Express MD5 hashing overhead on every request
+    leaderboardETag = 'W/"' + crypto.createHash('md5').update(serializedData).digest('hex') + '"';
     res.setHeader('Content-Type', 'application/json');
+    res.setHeader('ETag', leaderboardETag);
     res.send(serializedData);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
