@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { createClient } from '@supabase/supabase-js';
+import crypto from 'crypto';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -34,6 +35,7 @@ setInterval(() => {
 const MAX_FRAMES = 10;
 // ⚡ Bolt: Cache API leaderboard to reduce database queries. Invalidate on new vitals.
 let leaderboardCache = null;
+let leaderboardETag = null;
 
 app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 app.post('/api/global/vitals', async (req, res) => {
@@ -75,6 +77,7 @@ app.post('/api/global/vitals', async (req, res) => {
     cachedLeaderboard = null;
     // ⚡ Bolt: Invalidate leaderboard cache
     leaderboardCache = null;
+    leaderboardETag = null;
     res.status(202).json({ status: 'accepted', count: arr.length });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -84,6 +87,8 @@ app.get('/api/leaderboard', async (req, res) => {
     // constant DB polling and avoid JSON.stringify overhead on every request
     if (leaderboardCache) {
       res.setHeader('Content-Type', 'application/json');
+      // ⚡ Bolt: Avoid synchronous MD5 generation in Express res.send() by providing a pre-computed ETag
+      if (leaderboardETag) res.setHeader('ETag', leaderboardETag);
       return res.send(leaderboardCache);
     }
 
@@ -145,7 +150,10 @@ app.get('/api/leaderboard', async (req, res) => {
     // ⚡ Bolt: Serialize once and store string in cache
     const serializedData = JSON.stringify(data);
     leaderboardCache = serializedData;
+    // ⚡ Bolt: Pre-calculate the ETag hash here so Express doesn't have to re-hash the string on every single GET
+    leaderboardETag = 'W/"' + crypto.createHash('md5').update(serializedData).digest('hex') + '"';
     res.setHeader('Content-Type', 'application/json');
+    res.setHeader('ETag', leaderboardETag);
     res.send(serializedData);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
