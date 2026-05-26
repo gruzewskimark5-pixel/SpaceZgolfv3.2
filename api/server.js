@@ -86,6 +86,10 @@ app.get('/api/leaderboard', async (req, res) => {
     // ⚡ Bolt: Serve pre-serialized JSON from cache if available to prevent
     // constant DB polling and avoid JSON.stringify overhead on every request
     if (leaderboardCache) {
+      // ⚡ Bolt: Early return for 304 Not Modified to avoid payload processing
+      if (req.headers['if-none-match'] === leaderboardETag) {
+        return res.status(304).end();
+      }
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('ETag', leaderboardETag);
       return res.send(leaderboardCache);
