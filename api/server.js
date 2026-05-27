@@ -88,6 +88,12 @@ app.get('/api/leaderboard', async (req, res) => {
     if (leaderboardCache) {
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('ETag', leaderboardETag);
+      // ⚡ Bolt: Optimize cache hit performance. Bypass Express.js res.send() payload handling
+      // by early returning 304 if the client's ETag matches our precomputed ETag.
+      // Must be done after setting the ETag header to comply with HTTP specs for 304 responses.
+      if (req.headers['if-none-match'] === leaderboardETag) {
+        return res.status(304).end();
+      }
       return res.send(leaderboardCache);
     }
 
