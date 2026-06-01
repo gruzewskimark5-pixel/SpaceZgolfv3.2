@@ -88,6 +88,10 @@ app.get('/api/leaderboard', async (req, res) => {
     if (leaderboardCache) {
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('ETag', leaderboardETag);
+      // ⚡ Bolt: Completely bypass res.send() processing overhead for cached early returns.
+      if (req.headers['if-none-match'] === leaderboardETag) {
+        return res.status(304).end();
+      }
       return res.send(leaderboardCache);
     }
 
