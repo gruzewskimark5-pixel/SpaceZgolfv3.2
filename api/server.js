@@ -86,6 +86,14 @@ app.get('/api/leaderboard', async (req, res) => {
     // ⚡ Bolt: Serve pre-serialized JSON from cache if available to prevent
     // constant DB polling and avoid JSON.stringify overhead on every request
     if (leaderboardCache) {
+      // ⚡ Bolt: Manual 304 Not Modified early return to completely bypass
+      // Express.js's res.send() payload handling and synchronous hashing overhead.
+      // We use .includes() rather than === to safely handle comma-separated lists and Weak ETags natively.
+      const matchHeader = req.headers['if-none-match'];
+      if (matchHeader && matchHeader.includes(leaderboardETag)) {
+        res.setHeader('ETag', leaderboardETag);
+        return res.status(304).end();
+      }
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('ETag', leaderboardETag);
       return res.send(leaderboardCache);
