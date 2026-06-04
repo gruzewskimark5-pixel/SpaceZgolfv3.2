@@ -84,3 +84,7 @@
 ## 2024-05-24 - Express ETag Synchronous Hashing Overhead
 **Learning:** Express.js's default `res.send()` synchronously computes an MD5 hash to generate ETags for string payloads. For cached strings like API responses, this repetitive synchronous hashing blocks the main thread and introduces unnecessary overhead on every request.
 **Action:** Precompute the ETag when generating and caching the string payload. Manually set it via `res.setHeader('ETag', precomputedETag)` before calling `res.send()`. Express will automatically skip hashing and handle the 304 Not Modified response natively based on the client's `If-None-Match` header.
+
+## 2024-05-25 - Express ETag Early Return Optimization
+**Learning:** Even when the `ETag` header is manually set, if the client sends an `If-None-Match` header, calling `res.send()` in Express still incurs internal payload handling overhead (like buffering) before Express internally evaluates the freshness and returns a 304.
+**Action:** For heavily cached endpoints returning strings, manually extract `req.headers['if-none-match']`, check if it includes the precomputed ETag, set the `ETag` header, and execute an early return (`return res.status(304).end();`) to completely bypass Express's internal `res.send()` payload handling overhead.
