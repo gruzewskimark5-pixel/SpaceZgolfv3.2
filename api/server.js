@@ -88,6 +88,14 @@ app.get('/api/leaderboard', async (req, res) => {
     if (leaderboardCache) {
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('ETag', leaderboardETag);
+
+      // ⚡ Bolt: Check client's ETag for an early return to bypass Express.js's internal
+      // synchronous MD5 calculation and buffer allocation within res.send() for large strings.
+      const matchHeader = req.headers['if-none-match'];
+      if (matchHeader && matchHeader.includes(leaderboardETag)) {
+        return res.status(304).end();
+      }
+
       return res.send(leaderboardCache);
     }
 
