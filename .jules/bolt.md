@@ -88,3 +88,9 @@
 ## 2026-06-06 - Express res.send() Synchronous Overhead
 **Learning:** Express.js's default `res.send()` synchronously calculates `Content-Length` by allocating a new `Buffer.from(string)` for large payloads before evaluating `req.fresh` status, causing unnecessary main-thread blocking.
 **Action:** Precompute the ETag, manually check the `if-none-match` header using `.includes()`, and execute an early return (`return res.status(304).end();`) to completely bypass this internal Express payload handling overhead.
+## 2026-06-07 - Array.forEach Overhead vs for loop
+**Learning:** Using `Array.prototype.forEach()` in hot paths or bulk endpoints introduces function call and closure allocation overhead per element, which is slower than a traditional `for` loop.
+**Action:** Replace `.forEach()` with standard `for` loops when iterating over arrays in hot paths to avoid closure allocations and improve execution speed.
+## 2026-06-07 - Express res.send() vs res.end() for Cached Strings
+**Learning:** When serving pre-serialized strings (like JSON caches) where the ETag and headers are already manually managed, calling Express's `res.send(string)` forces unnecessary internal overhead (type checking, buffer allocation for content length, and redundant ETag generation logic).
+**Action:** Use the native Node.js HTTP `res.end(string)` instead of `res.send()` on hot API paths where the payload is a pre-computed string cache to immediately stream the response and bypass Express's payload processing pipeline.
