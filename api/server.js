@@ -93,7 +93,7 @@ app.get('/api/leaderboard', async (req, res) => {
       }
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('ETag', leaderboardETag);
-      return res.send(leaderboardCache);
+      return res.end(leaderboardCache);
     }
 
     // ⚡ Bolt: Optimize large array processing by pre-allocating an array and using
@@ -157,7 +157,7 @@ app.get('/api/leaderboard', async (req, res) => {
     leaderboardETag = 'W/"' + crypto.createHash('md5').update(serializedData).digest('hex') + '"';
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('ETag', leaderboardETag);
-    res.send(serializedData);
+    res.end(serializedData);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 app.post('/api/analyze-swing', async (req, res) => {
