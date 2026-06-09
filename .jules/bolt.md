@@ -88,3 +88,7 @@
 ## 2026-06-06 - Express res.send() Synchronous Overhead
 **Learning:** Express.js's default `res.send()` synchronously calculates `Content-Length` by allocating a new `Buffer.from(string)` for large payloads before evaluating `req.fresh` status, causing unnecessary main-thread blocking.
 **Action:** Precompute the ETag, manually check the `if-none-match` header using `.includes()`, and execute an early return (`return res.status(304).end();`) to completely bypass this internal Express payload handling overhead.
+
+## 2026-06-09 - Bypassing Express res.send() payload processing for pre-serialized strings
+**Learning:** For Express.js routes returning pre-serialized string caches where `ETag` and `Content-Type` are manually managed, `res.send(string)` still performs unnecessary internal payload processing, like allocating a new `Buffer.from(string)` to calculate `Content-Length`.
+**Action:** Use `res.end(string)` instead of `res.send(string)` to skip this redundant overhead and directly stream the pre-serialized string to the client.
