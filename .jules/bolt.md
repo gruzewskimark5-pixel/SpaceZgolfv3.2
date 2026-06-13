@@ -92,3 +92,7 @@
 ## 2026-06-06 - Express res.send() vs res.end()
 **Learning:** For Express.js routes returning pre-serialized string caches where `ETag` and `Content-Type` are already manually managed, using `res.send(string)` invokes unnecessary internal Express payload processing (like calculating `Content-Length` via `Buffer` allocation and redundant ETag generation).
 **Action:** When manually managing `ETag` and `Content-Type` headers for pre-serialized string caches, prefer `res.end(string)` instead of `res.send(string)` to skip this redundant processing.
+
+## 2024-06-09 - Avoid Synchronous MD5 Hashing for ETags
+**Learning:** Generating ETags using synchronous MD5 hashing (`crypto.createHash('md5')`) on large serialized strings blocks the main thread and introduces significant overhead. Since ETags only need to be unique per cache state, a simple incrementing counter is perfectly valid and over 1000x faster.
+**Action:** When manually managing ETags for server-side cached data, replace expensive MD5 payload hashing with a fast, monotonic counter (`let etagCounter = 0; ... etag = (++etagCounter).toString()`) to eliminate main-thread blocking.
