@@ -4,7 +4,6 @@ import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import crypto from 'crypto';
 
 dotenv.config();
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -36,6 +35,9 @@ const MAX_FRAMES = 10;
 // ⚡ Bolt: Cache API leaderboard to reduce database queries. Invalidate on new vitals.
 let leaderboardCache = null;
 let leaderboardETag = null;
+// ⚡ Bolt: Use a fast incrementing counter instead of expensive MD5 payload hashing for ETag generation
+// Seed it with Date.now() to ensure ETags are unique across server restarts and prevent caching collisions
+let leaderboardETagCounter = Date.now();
 
 app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 app.post('/api/global/vitals', async (req, res) => {
@@ -155,7 +157,9 @@ app.get('/api/leaderboard', async (req, res) => {
     // ⚡ Bolt: Serialize once and store string in cache
     const serializedData = JSON.stringify(data);
     leaderboardCache = serializedData;
-    leaderboardETag = 'W/"' + crypto.createHash('md5').update(serializedData).digest('hex') + '"';
+    // ⚡ Bolt: Replace extremely slow synchronous MD5 hashing with a simple O(1) incrementing counter
+    // to generate the ETag. This eliminates main-thread blocking during cache updates.
+    leaderboardETag = 'W/"' + (++leaderboardETagCounter).toString() + '"';
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('ETag', leaderboardETag);
     // ⚡ Bolt: Use res.end instead of res.send to skip Express's internal payload processing for pre-serialized string caches
