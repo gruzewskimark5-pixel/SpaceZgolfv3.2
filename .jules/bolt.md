@@ -92,3 +92,10 @@
 ## 2026-06-06 - Express res.send() vs res.end()
 **Learning:** For Express.js routes returning pre-serialized string caches where `ETag` and `Content-Type` are already manually managed, using `res.send(string)` invokes unnecessary internal Express payload processing (like calculating `Content-Length` via `Buffer` allocation and redundant ETag generation).
 **Action:** When manually managing `ETag` and `Content-Type` headers for pre-serialized string caches, prefer `res.end(string)` instead of `res.send(string)` to skip this redundant processing.
+## 2024-06-09 - [Avoid Synchronous MD5 Hashing for ETags]
+**Learning:** When caching API responses, avoid synchronous MD5 hashing (`crypto.createHash('md5')`) for ETag generation on large payloads, as it blocks the main thread.
+**Action:** Instead, use an incrementing integer counter seeded with `Date.now()` to ensure cross-restart uniqueness without CPU overhead.
+
+## 2024-06-09 - [Remove Overlapping Cache Logic]
+**Learning:** When implementing new optimizations or cache strategies, carefully check for and remove any older overlapping logic to ensure they do not leave dead code in the repository.
+**Action:** Always clean up overlapping unoptimized code like old cache variables that are no longer being used or returned.

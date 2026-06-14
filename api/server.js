@@ -4,7 +4,6 @@ import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import crypto from 'crypto';
 
 dotenv.config();
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -14,8 +13,6 @@ app.use(cors()); app.use(express.json());
 app.use(express.static(join(__dirname, '..')));
 const supabase = process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY) : null;
 const memStore = new Map();
-// ⚡ Bolt: Cache leaderboard to prevent excessive DB reads on client poll
-let cachedLeaderboard = null;
 // ⚡ Bolt: Replace Math.max/min with explicit ternaries to avoid function overhead
 const normalizeZ = z => { const v = (z + 3) / 6; return v < 0 ? 0 : (v > 1 ? 1 : v); };
 const calcDI = (ec, z) => Math.round((ec * 0.65 + normalizeZ(z) * 0.35) * 10000) / 10000;
@@ -36,6 +33,7 @@ const MAX_FRAMES = 10;
 // ⚡ Bolt: Cache API leaderboard to reduce database queries. Invalidate on new vitals.
 let leaderboardCache = null;
 let leaderboardETag = null;
+let etagCounter = Date.now();
 
 app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 app.post('/api/global/vitals', async (req, res) => {
@@ -73,8 +71,6 @@ app.post('/api/global/vitals', async (req, res) => {
     } else {
       rows.forEach(r => memStore.set(r.source_module, r));
     }
-    // ⚡ Bolt: Invalidate cache when new data arrives
-    cachedLeaderboard = null;
     // ⚡ Bolt: Invalidate leaderboard cache
     leaderboardCache = null;
     leaderboardETag = null;
@@ -155,7 +151,7 @@ app.get('/api/leaderboard', async (req, res) => {
     // ⚡ Bolt: Serialize once and store string in cache
     const serializedData = JSON.stringify(data);
     leaderboardCache = serializedData;
-    leaderboardETag = 'W/"' + crypto.createHash('md5').update(serializedData).digest('hex') + '"';
+    leaderboardETag = 'W/"' + etagCounter++ + '"';
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('ETag', leaderboardETag);
     // ⚡ Bolt: Use res.end instead of res.send to skip Express's internal payload processing for pre-serialized string caches
