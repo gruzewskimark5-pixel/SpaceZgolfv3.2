@@ -3,6 +3,7 @@ import { zScoreBoard } from '../core/zScoreBoard.js';
 import { StateStore } from '../core/StateStore.js';
 
 let intervalId = null;
+let lastETag = null;
 
 const mock = () => {
   // ⚡ Bolt: Cache system timestamp to avoid redundant Date.now() calls
@@ -31,10 +32,27 @@ const mock = () => {
 
 const fetchAPI = async () => {
   try {
-    const r = await fetch('/api/leaderboard');
+    const headers = {};
+    if (lastETag) {
+      headers['If-None-Match'] = lastETag;
+    }
+    const r = await fetch('/api/leaderboard', { headers });
+
+    // ⚡ Bolt: Respect 304 Not Modified to avoid parsing JSON payload
+    // and skip downstream processing
+    if (r.status === 304) {
+      return { type: 'not-modified' };
+    }
+
     if (!r.ok) {
       throw new Error();
     }
+
+    const etag = r.headers.get('ETag');
+    if (etag) {
+      lastETag = etag;
+    }
+
     const d = await r.json();
     if (!d.length) {
       return null;
@@ -54,6 +72,13 @@ export const startPulse = (ms = 60000) => {
   }
   const tick = async () => {
     const payload = (await fetchAPI()) || mock();
+
+    // ⚡ Bolt: Early return if payload is not-modified to prevent
+    // redundant state updates and avoid EventBus emissions which trigger DOM re-renders.
+    if (payload.type === 'not-modified') {
+      return;
+    }
+
     const lb = payload.type === 'api' ? payload.data : zScoreBoard(payload.data);
     StateStore.set({
       leaderboard: lb,

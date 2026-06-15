@@ -14,8 +14,6 @@ app.use(cors()); app.use(express.json());
 app.use(express.static(join(__dirname, '..')));
 const supabase = process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY) : null;
 const memStore = new Map();
-// ⚡ Bolt: Cache leaderboard to prevent excessive DB reads on client poll
-let cachedLeaderboard = null;
 // ⚡ Bolt: Replace Math.max/min with explicit ternaries to avoid function overhead
 const normalizeZ = z => { const v = (z + 3) / 6; return v < 0 ? 0 : (v > 1 ? 1 : v); };
 const calcDI = (ec, z) => Math.round((ec * 0.65 + normalizeZ(z) * 0.35) * 10000) / 10000;
@@ -73,8 +71,6 @@ app.post('/api/global/vitals', async (req, res) => {
     } else {
       rows.forEach(r => memStore.set(r.source_module, r));
     }
-    // ⚡ Bolt: Invalidate cache when new data arrives
-    cachedLeaderboard = null;
     // ⚡ Bolt: Invalidate leaderboard cache
     leaderboardCache = null;
     leaderboardETag = null;
