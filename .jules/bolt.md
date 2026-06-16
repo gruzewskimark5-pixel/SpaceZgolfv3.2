@@ -92,3 +92,6 @@
 ## 2026-06-06 - Express res.send() vs res.end()
 **Learning:** For Express.js routes returning pre-serialized string caches where `ETag` and `Content-Type` are already manually managed, using `res.send(string)` invokes unnecessary internal Express payload processing (like calculating `Content-Length` via `Buffer` allocation and redundant ETag generation).
 **Action:** When manually managing `ETag` and `Content-Type` headers for pre-serialized string caches, prefer `res.end(string)` instead of `res.send(string)` to skip this redundant processing.
+## 2024-05-24 - Frontend ETag Polling Optimization
+**Learning:** When polling backend APIs on an interval, polling without conditional headers forces the frontend to parse identical JSON, recalculate derived data, and unnecessarily diff or re-render the DOM, wasting CPU cycles on idle updates.
+**Action:** Always capture the `ETag` header from successful fetch requests during polling loops and send it back via the `If-None-Match` header. Implement early-return logic for `304 Not Modified` responses to instantly short-circuit the entire frontend update pipeline.

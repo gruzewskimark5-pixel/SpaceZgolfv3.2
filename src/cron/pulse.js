@@ -3,6 +3,7 @@ import { zScoreBoard } from '../core/zScoreBoard.js';
 import { StateStore } from '../core/StateStore.js';
 
 let intervalId = null;
+let lastEtag = null; // ⚡ Bolt: Cache ETag for conditional requests
 
 const mock = () => {
   // ⚡ Bolt: Cache system timestamp to avoid redundant Date.now() calls
@@ -31,10 +32,20 @@ const mock = () => {
 
 const fetchAPI = async () => {
   try {
-    const r = await fetch('/api/leaderboard');
+    const headers = {};
+    if (lastEtag) headers['If-None-Match'] = lastEtag;
+    const r = await fetch('/api/leaderboard', { headers });
+
+    // ⚡ Bolt: Short-circuit on 304 Not Modified to skip JSON parsing and DOM updates
+    if (r.status === 304) return { type: 'not_modified' };
+
     if (!r.ok) {
       throw new Error();
     }
+
+    const etag = r.headers.get('etag');
+    if (etag) lastEtag = etag;
+
     const d = await r.json();
     if (!d.length) {
       return null;
@@ -54,6 +65,10 @@ export const startPulse = (ms = 60000) => {
   }
   const tick = async () => {
     const payload = (await fetchAPI()) || mock();
+
+    // ⚡ Bolt: Early return if data hasn't changed to prevent unnecessary re-renders
+    if (payload.type === 'not_modified') return;
+
     const lb = payload.type === 'api' ? payload.data : zScoreBoard(payload.data);
     StateStore.set({
       leaderboard: lb,
