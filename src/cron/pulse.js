@@ -29,12 +29,31 @@ const mock = () => {
   };
 };
 
+// ⚡ Bolt: Cache ETag for 304 short-circuiting
+let lastETag = null;
+
 const fetchAPI = async () => {
   try {
-    const r = await fetch('/api/leaderboard');
+    const headers = {};
+    if (lastETag) {
+      headers['If-None-Match'] = lastETag;
+    }
+    const r = await fetch('/api/leaderboard', { headers });
+
+    // ⚡ Bolt: Short-circuit on 304 to avoid JSON parsing and pipeline overhead
+    if (r.status === 304) {
+      return { type: '304' };
+    }
+
     if (!r.ok) {
       throw new Error();
     }
+
+    const etag = r.headers.get('ETag');
+    if (etag) {
+      lastETag = etag;
+    }
+
     const d = await r.json();
     if (!d.length) {
       return null;
@@ -54,6 +73,13 @@ export const startPulse = (ms = 60000) => {
   }
   const tick = async () => {
     const payload = (await fetchAPI()) || mock();
+
+    // ⚡ Bolt: Short-circuit on 304 to avoid unnecessary data mapping and DOM re-renders
+    if (payload.type === '304') {
+      StateStore.set({ lastPulse: Date.now() });
+      return;
+    }
+
     const lb = payload.type === 'api' ? payload.data : zScoreBoard(payload.data);
     StateStore.set({
       leaderboard: lb,
