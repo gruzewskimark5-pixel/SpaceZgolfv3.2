@@ -92,3 +92,6 @@
 ## 2026-06-06 - Express res.send() vs res.end()
 **Learning:** For Express.js routes returning pre-serialized string caches where `ETag` and `Content-Type` are already manually managed, using `res.send(string)` invokes unnecessary internal Express payload processing (like calculating `Content-Length` via `Buffer` allocation and redundant ETag generation).
 **Action:** When manually managing `ETag` and `Content-Type` headers for pre-serialized string caches, prefer `res.end(string)` instead of `res.send(string)` to skip this redundant processing.
+## 2026-06-18 - HTTP 304 ETag Frontend Polling
+**Learning:** When polling APIs, ignoring ETags on the frontend causes unnecessary JSON parsing and DOM re-renders even when the server returns a 304, defeating the purpose of server-side ETag caching.
+**Action:** Capture the ETag from responses and send it in the If-None-Match header, short-circuiting frontend processing on 304 status to improve client performance.
