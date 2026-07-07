@@ -95,3 +95,6 @@
 ## 2024-06-21 - Frontend Polling ETag Short-Circuit
 **Learning:** When polling an API constantly using `setInterval`, standard caching alone isn't enough if the client still parses the response, maps the data, and checks for DOM updates. Processing identical payloads repeatedly causes significant CPU spikes, memory allocations, and V8 garbage collection overhead on the client.
 **Action:** Optimize frontend polling loops by explicitly storing the `ETag` from the server's initial response and sending it via the `If-None-Match` header on subsequent requests. Short-circuit the entire processing pipeline early when the server responds with a `304 Not Modified`, skipping parsing (`r.json()`), object manipulation, and event emissions completely.
+## 2024-07-01 - Express Static Middleware I/O Overhead
+**Learning:** Placing `express.static` before API routes forces the server to execute a filesystem `stat` call for every API request, checking if a static file matches the API path. This introduces unnecessary I/O overhead on high-throughput backend endpoints.
+**Action:** Optimize Express.js route order by placing `express.static` below all API route definitions, directly above the catch-all fallback route, to prevent this unnecessary I/O blocking.
