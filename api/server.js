@@ -11,7 +11,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 const port = process.env.PORT || 3000;
 app.use(cors()); app.use(express.json());
-app.use(express.static(join(__dirname, '..')));
 const supabase = process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY) : null;
 const memStore = new Map();
 // ⚡ Bolt: Cache leaderboard to prevent excessive DB reads on client poll
@@ -224,5 +223,7 @@ app.post('/api/analyze-swing', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// ⚡ Bolt: Placed express.static below API routes to prevent unnecessary filesystem stat operations on every API request
+app.use(express.static(join(__dirname, '..')));
 app.get('*', (req, res) => res.sendFile(join(__dirname, '..', 'index.html')));
 app.listen(port, () => console.log(`🚀 SpaceZgolf live → http://localhost:${port}`));
